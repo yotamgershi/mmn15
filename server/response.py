@@ -1,6 +1,6 @@
 from enum import Enum
-from typing import Literal
 import struct
+import utils
 
 VERSION = 3
 
@@ -9,24 +9,6 @@ def validate_response_code(code: "ResponseCode") -> None:
     """Validate that a response code is valid."""
     if code not in ResponseCode:
         raise ValueError(f"Invalid response code: {code.value}")
-
-
-def validate_range(
-    var_name: str,
-    number: int,
-    uint_type: Literal["uint8_t", "uint16_t", "uint32_t", "uint64_t"],
-) -> None:
-    """Validate that a number is within the range of a given unsigned integer type."""
-    ranges = {
-        "uint8_t": (0, 0xFF),
-        "uint16_t": (0, 0xFFFF),
-        "uint32_t": (0, 0xFFFFFFFF),
-        "uint64_t": (0, 0xFFFFFFFFFFFFFFFF),
-    }
-
-    min_val, max_val = ranges[uint_type]
-    if not min_val <= number <= max_val:
-        raise ValueError(f"{var_name} {number} is out of range for {uint_type}.")
 
 
 class ResponseCode(Enum):
@@ -48,7 +30,23 @@ class Response:
         self.code = code
         self.payload_size = payload_size
         validate_response_code(self.code)
-        validate_range("payload_size", self.payload_size, "uint32_t")
+        utils.validate_range("payload_size", self.payload_size, "uint32_t")
 
     def pack(self) -> bytes:
         return struct.pack(">BBI", self.version, self.code.value, self.payload_size)
+
+
+class ResponseSignUpSuccess(Response):
+    def __init__(self, client_id: bytes):
+        super().__init__(ResponseCode.SIGN_UP_SUCCEEDED, utils.CLIENT_ID_LEN)
+        if len(client_id) != utils.CLIENT_ID_LEN:
+            raise ValueError(f"Client ID must be {utils.CLIENT_ID_LEN} bytes long.")
+        self.client_id = client_id
+
+    def pack(self) -> bytes:
+        return super().pack() + self.client_id
+
+
+class ResponseSignUpFailed(Response):
+    def __init__(self, error_message: str):
+        super().__init__(ResponseCode.SIGN_UP_FAILED, len(error_message))

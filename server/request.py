@@ -1,41 +1,12 @@
 import struct
-from typing import Literal
 from enum import Enum
-# for git
-
-CLIENT_ID_LEN = 16
-PUBLIC_KEY_SIZE = 160
-AES_KEY_SIZE = 16
-ENCRYPTED_AES_KEY_SIZE = 128
-MAX_USER_NAME_LEN = 255
-MAX_FILE_NAME_LEN = 255
-
-REQUEST_MIN_LEN = 23
-MAX_FILE_CONTENT_LENGTH = 0xFFFFFFFF
-MAX_REQUEST_LENGTH = REQUEST_MIN_LEN + MAX_FILE_NAME_LEN + 4 + MAX_FILE_CONTENT_LENGTH
+import utils
 
 
 def validate_request_code(code: "RequestCode") -> None:
     """Validate that a request code is valid."""
     if code not in RequestCode:
         raise ValueError(f"Invalid reqeust code: {code.value}")
-
-
-def validate_range(
-    var_name: str,
-    number: int,
-    uint_type: Literal["uint8_t", "uint16_t", "uint32_t", "uint64_t"],
-) -> None:
-    """Validate that a number is within the range of a given unsigned integer type."""
-    ranges = {
-        "uint8_t": (0, 0xFF),
-        "uint16_t": (0, 0xFFFF),
-        "uint32_t": (0, 0xFFFFFFFF),
-        "uint64_t": (0, 0xFFFFFFFFFFFFFFFF),
-    }
-    min_val, max_val = ranges[uint_type]
-    if not min_val <= number <= max_val:
-        raise ValueError(f"{var_name} {number} is out of range for {uint_type}.")
 
 
 class RequestCode(Enum):
@@ -53,12 +24,12 @@ class RequestCode(Enum):
 class Request:
 
     def __init__(self, buffer: bytes):
-        if len(buffer) < REQUEST_MIN_LEN:
-            raise ValueError(f"Request too short - {len(buffer)} bytes, expected at least {REQUEST_MIN_LEN}")
+        if len(buffer) < utils.REQUEST_MIN_LEN:
+            raise ValueError(f"Request too short - {len(buffer)} bytes, expected at least {utils.REQUEST_MIN_LEN}")
 
         # Extract client ID (16 bytes)
-        self.client_id = buffer[:CLIENT_ID_LEN]
-        buffer = buffer[CLIENT_ID_LEN:]
+        self.client_id = buffer[:utils.CLIENT_ID_LEN]
+        buffer = buffer[utils.CLIENT_ID_LEN:]
 
         # Ensure buffer has enough data for header (6 bytes: version, code, and payload_size)
         if len(buffer) < 6:
@@ -70,8 +41,8 @@ class Request:
 
         # Validate extracted fields
         validate_request_code(self.code)
-        validate_range("payload_size", self.payload_size, "uint32_t")
-        validate_range("version", self.version, "uint8_t")
+        utils.validate_range("payload_size", self.payload_size, "uint32_t")
+        utils.validate_range("version", self.version, "uint8_t")
 
         buffer = buffer[6:]  # Remaining buffer is the payload
 
