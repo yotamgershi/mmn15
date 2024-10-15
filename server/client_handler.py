@@ -35,7 +35,7 @@ class ClientHandler:
         self.awaiting_file = False
         self.active = True
 
-    def handle_message(self):
+    def handle_request(self):
         """Handle a message from the client."""
         if not self.active:
             raise RuntimeError(f"got message on inactive client {self.client_id}")
