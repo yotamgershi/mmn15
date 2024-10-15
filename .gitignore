@@ -3,3 +3,5 @@
 .flake8
 *.sqlite3
 *.info
+*.txt
+*/__pycache__/
