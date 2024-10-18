@@ -1,5 +1,9 @@
 *.pyc
-/server/__pycache__/
+__pycache__/
 .flake8
 *.sqlite3
 *.info
+*.txt
+*/__pycache__/
+*.db
+*.vscode
