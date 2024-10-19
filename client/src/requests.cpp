@@ -1,8 +1,8 @@
 #include "requests.hpp"
 #include <cstring>
 
-// Constructor implementation (no default argument here)
-Request::Request(const std::string& clientID, uint8_t version, uint16_t requestCode)
+// Constructor that builds the request based on the request code
+Request::Request(const std::string& clientID, uint8_t version, uint16_t requestCode, const std::string& name, const std::string& publicKey)
     : clientID_(clientID), version_(version), requestCode_(requestCode), payloadSize_(0) {
 
     // Ensure clientID is exactly 16 bytes (pad or truncate if necessary)
@@ -26,31 +26,43 @@ Request::Request(const std::string& clientID, uint8_t version, uint16_t requestC
     for (int i = 0; i < 4; ++i) {
         request_.push_back(0);  // Placeholder, to be updated later
     }
+
+    // Call buildRequest to construct the correct payload based on request code
+    buildRequest(requestCode, name, publicKey);
 }
 
-// Function to build the sign-up request by adding the payload and updating payload size
-void Request::buildSignUpRequest(const std::string& name) {
-    // Build and encode the payload (name + null terminator)
-    std::string payloadStr = name + '\0';  // Null-terminate the name
-    payloadSize_ = static_cast<uint32_t>(payloadStr.size());
+// Function that dispatches the correct request-building function
+void Request::buildRequest(uint16_t requestCode, const std::string& name, const std::string& publicKey) {
+    switch (requestCode) {
+        case RequestCode::SIGN_UP:
+            buildSignUpRequest(name);
+            break;
+        case RequestCode::SEND_PUBLIC_KEY:
+            buildSendPublicKeyRequest(name, publicKey);
+            break;
+        default:
+            throw std::runtime_error("Unknown request code");
+    }
+}
 
-    // Update the payload size in the request header (bytes 19 to 22)
+// Build the sign-up request (payload contains only the name)
+void Request::buildSignUpRequest(const std::string& name) {
+    std::string payload = name + '\0';  // Null-terminate the name
+    payload_.insert(payload_.end(), payload.begin(), payload.end());
+
+    // Update the payload size in the header (bytes 19 to 22)
+    payloadSize_ = static_cast<uint32_t>(payload_.size());
     request_[19] = payloadSize_ & 0xFF;
     request_[20] = (payloadSize_ >> 8) & 0xFF;
     request_[21] = (payloadSize_ >> 16) & 0xFF;
     request_[22] = (payloadSize_ >> 24) & 0xFF;
 
-    // Add the payload (name)
-    payload_.insert(payload_.end(), payloadStr.begin(), payloadStr.end());
+    // Append the payload to the full request
     request_.insert(request_.end(), payload_.begin(), payload_.end());
 }
 
-// Function to return the full request (header + payload)
-std::vector<uint8_t> Request::getRequest() const {
-    return request_;
-}
-
-void Request::buildSendPublicKey(const std::string& name, const std::string& publicKey) {
+// Build the send public key request (payload contains name + public key)
+void Request::buildSendPublicKeyRequest(const std::string& name, const std::string& publicKey) {
     // Build the name field (255 bytes, null-terminated)
     std::vector<uint8_t> nameField(255, 0);
     std::memcpy(nameField.data(), name.c_str(), std::min<size_t>(name.length(), 254));  // Copy name
@@ -61,7 +73,7 @@ void Request::buildSendPublicKey(const std::string& name, const std::string& pub
     std::memcpy(publicKeyField.data(), publicKey.data(), std::min<size_t>(publicKey.length(), 160));  // Copy public key
     payload_.insert(payload_.end(), publicKeyField.begin(), publicKeyField.end());
 
-    // Update the payload size in the header (bytes 19 to 22 in the request_)
+    // Update the payload size in the header (bytes 19 to 22)
     payloadSize_ = static_cast<uint32_t>(payload_.size());
     request_[19] = payloadSize_ & 0xFF;
     request_[20] = (payloadSize_ >> 8) & 0xFF;

@@ -17,26 +17,28 @@ enum RequestCode {
 
 class Request {
 public:
-    // Constructor builds the header (Client ID, Version, Request Code)
-    Request(const std::string& clientID, uint8_t version, uint16_t requestCode = 826);
-
-    // Function to build the sign-up request by adding payload and updating payload size
-    void buildSignUpRequest(const std::string& name);
-
-    // Function to build the sendPublicKey request by adding the public key and updating payload size
-    void buildSendPublicKey(const std::string& name, const std::string& publicKey);
+    // Constructor that parses the request code and builds the appropriate request
+    Request(const std::string& clientID, uint8_t version, uint16_t requestCode, const std::string& name, const std::string& publicKey = "");
 
     // Function to return the full request (header + payload)
-    std::vector<uint8_t> getRequest() const;
+    std::vector<uint8_t> getRequest() const { return request_; }
 
 private:
     std::string clientID_;          // 16-byte Client ID
     uint8_t version_;               // 1-byte version
     uint16_t requestCode_;          // 2-byte request code
-    uint32_t payloadSize_;          // 4-byte payload size (updated when payload is added)
-    std::vector<uint8_t> payload_;  // Payload data (e.g., name, public key)
+    uint32_t payloadSize_;          // 4-byte payload size
+    std::vector<uint8_t> payload_;  // Payload data
     std::vector<uint8_t> request_;  // Full request (header + payload)
+
+    // Function to dispatch the appropriate request-building function
+    void buildRequest(uint16_t requestCode, const std::string& name, const std::string& publicKey);
+
+    // Request-building functions
+    void buildSignUpRequest(const std::string& name);
+    void buildSendPublicKeyRequest(const std::string& name, const std::string& publicKey);
 };
+
 
 
 #endif // REQUEST_HPP

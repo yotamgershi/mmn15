@@ -17,7 +17,6 @@ public:
     std::vector<uint8_t> receive();
     std::pair<bool, std::string> signUp();
     void Client::writeToFile(const std::string& filename);
-    std::vector<uint8_t> Client::buildSendPublicKey(const std::string& publicKey) const;
     bool Client::sendPublicKey(const std::string& publicKey);
 
 private:
@@ -31,7 +30,6 @@ private:
 
 };
 
-std::vector<uint8_t> buildSignUpRequest(const std::string& name);
 std::tuple<std::string, std::string, std::string, std::string> readTransferInfo(const std::string& filename);
 std::pair<std::string, std::string> generateRSAKeyPair();
 void savePrivateKeyToFile(const CryptoPP::RSA::PrivateKey& privateKey, const std::string& filename);

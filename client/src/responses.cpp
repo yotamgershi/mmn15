@@ -57,3 +57,8 @@ void Response::parseSendPublicKeyResponse() {
 void Response::parseSignInResponse() {
     std::cout << "Sign-in failed! Invalid credentials." << std::endl;
 }
+
+void Response::parseSignUpFailureResponse() {
+    // Implementation logic for handling sign-up failure response
+    std::cerr << "Sign-up failed! Name is already taken." << std::endl;
+}

@@ -128,9 +128,10 @@ std::pair<bool, std::string> Client::signUp() {
         return {false, ""};
     }
 
-    // Create the sign-up request
-    Request request(clientID_, VERSION, RequestCode::SIGN_UP);
-    request.buildSignUpRequest(name_);
+    // Create the sign-up request (constructor will handle header and payload)
+    Request request(clientID_, VERSION, RequestCode::SIGN_UP, name_);
+
+    // Send the full request (header + payload)
     send(request.getRequest());
 
     // Receive the response from the server
@@ -170,8 +171,6 @@ std::pair<bool, std::string> Client::signUp() {
 
     return {false, ""};  // Default to failure
 }
-
-
 
 
 void Client::close() {
@@ -229,11 +228,8 @@ std::pair<std::string, std::string> generateRSAKeyPair() {
 
 
 bool Client::sendPublicKey(const std::string& publicKey) {
-    // Create a Request object for sending the public key
-    Request request(clientID_, VERSION, RequestCode::SEND_PUBLIC_KEY);  // 826 for sending public key request code
-
-    // Build the sendPublicKey request by adding the payload (name + public key)
-    request.buildSendPublicKey(name_, publicKey);
+    // Create the request for sending the public key (constructor will handle header and payload)
+    Request request(clientID_, VERSION, RequestCode::SEND_PUBLIC_KEY, name_, publicKey);
 
     // Get the full request (header + payload) and send it to the server
     std::vector<uint8_t> fullRequest = request.getRequest();
@@ -247,15 +243,20 @@ bool Client::sendPublicKey(const std::string& publicKey) {
         return false;
     }
 
-    // Process the response
-    uint8_t versionResponse = response[0];
-    uint16_t responseCode = response[1] | (response[2] << 8);
+    // Process the response using the Response class
+    try {
+        Response serverResponse(response);
 
-    if (responseCode == 1602) {  // Assuming 1602 means public key acknowledged
-        std::cout << "Public key successfully sent and acknowledged by the server." << std::endl;
-        return true;
-    } else {
-        std::cerr << "Error: Failed to send public key. Server returned code: " << responseCode << std::endl;
+        // Check if the response code indicates success (1602 for public key acknowledgment)
+        if (serverResponse.getResponseCode() == 1602) {
+            std::cout << "Public key successfully sent and acknowledged by the server." << std::endl;
+            return true;
+        } else {
+            std::cerr << "Error: Failed to send public key. Server returned code: " << serverResponse.getResponseCode() << std::endl;
+            return false;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error processing server response: " << e.what() << std::endl;
         return false;
     }
 }
