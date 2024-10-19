@@ -14,6 +14,7 @@ public:
     void close();
     std::vector<uint8_t> receive();
     std::pair<bool, std::string> signUp();
+    void Client::writeToFile(const std::string& filename);
 
 private:
     boost::asio::io_context io_context_;

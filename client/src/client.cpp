@@ -72,15 +72,22 @@ std::vector<uint8_t> Client::receive() {
     }
 }
 
-void writeClientIDToFile(const std::string& clientID, const std::string& filename = "me.info") {
+void Client::writeToFile(const std::string& filename = "me.info") {
     std::ofstream outFile(filename);
     if (!outFile) {
         std::cerr << "Error: Could not create or open the file: " << filename << std::endl;
         return;
     }
-    outFile << clientID;
-    std::cout << "Client ID written to " << filename << std::endl;
+
+    outFile << name_ << std::endl;
+    for (unsigned char c : clientID_) {
+        outFile << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c & 0xff) << " ";
+    }
+    outFile << std::endl;
+
+    std::cout << "Client ID and name written to " << filename << " (plain and hex format)" << std::endl;
 }
+
 
 std::tuple<std::string, std::string, std::string, std::string> readTransferInfo(const std::string& filename) {
     std::ifstream file(filename);
@@ -139,7 +146,7 @@ std::pair<bool, std::string> Client::signUp() {
     clientID_ = receivedClientID;
     
     std::cout << "Sign-up successful! Received client ID (hex): ";
-    writeClientIDToFile(clientID_);
+    writeToFile();
 
     for (unsigned char c : clientID_) {
         std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c & 0xff) << " ";
@@ -194,3 +201,4 @@ std::vector<uint8_t> buildSignUpRequest(const std::string& name) {
 
     return request;
 }
+
