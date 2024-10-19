@@ -26,7 +26,6 @@ private:
 
 };
 
-// Function to build a sign-up request
 std::vector<uint8_t> buildSignUpRequest(const std::string& clientID, const std::string& name);
 
 

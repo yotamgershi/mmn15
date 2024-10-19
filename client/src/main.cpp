@@ -1,7 +1,7 @@
 #include "client.hpp"
 #include <string>
 #include <chrono>
-#include <thread> // Needed for std::this_thread::sleep_for
+#include <thread>
 
 int main()
 {
