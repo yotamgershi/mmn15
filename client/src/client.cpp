@@ -13,18 +13,12 @@
 #include <cstring>
 
 #include "client.hpp"
+#include "requests.hpp"
+#include "responses.hpp"
 
 int VERSION = 3;
 
-enum RequestCode {
-    SIGN_UP = 825,
-    SEND_PUBLIC_KEY = 826,
-    SIGN_IN = 827,
-    SEND_FILE = 828,
-    CRC_VALID = 900,
-    CRC_INVALID = 901,
-    CRC_INVALID_4TH_TIME = 902
-};
+
 
 Client::Client(const std::string& host, const std::string& port, const std::string& name, const std::string& clientID)
     : resolver_(io_context_), socket_(io_context_), host_(host), port_(port), name_(name), clientID_(clientID) {}
@@ -128,84 +122,61 @@ bool fileExists(const std::string& filename) {
 }
 
 std::pair<bool, std::string> Client::signUp() {
+    // Check if the client ID already exists to avoid duplicate sign-up
     if (fileExists("me.info")) {
         std::cerr << "Error: Client ID already exists. Please delete 'me.info' to sign up again." << std::endl;
         return {false, ""};
     }
 
-    std::vector<uint8_t> request = buildSignUpRequest(name_);
-    send(request);
+    // Create the sign-up request
+    Request request(clientID_, VERSION, RequestCode::SIGN_UP);
+    request.buildSignUpRequest(name_);
+    send(request.getRequest());
 
-    std::vector<uint8_t> response = receive();
-
-    if (response.empty()) {
+    // Receive the response from the server
+    std::vector<uint8_t> rawResponse = receive();
+    if (rawResponse.empty()) {
         return {false, ""};
     }
 
-    // Process the response
-    uint8_t version = response[0];  // 1 byte version
-    uint16_t code = response[1] | (response[2] << 8);  // 2 bytes for response code
-    uint32_t payloadSize = response[3] | (response[4] << 8) | (response[5] << 16) | (response[6] << 24);  // 4 bytes payload size
+    // Parse the response using the Response class
+    try {
+        Response response(rawResponse);
 
-    if (code == 1600) {
-    std::string receivedClientID(response.begin() + 7, response.begin() + 7 + 16);
-    clientID_ = receivedClientID;
-    
-    std::cout << "Sign-up successful! Received client ID (hex): ";
-    writeToFile();
+        // Check if the sign-up was successful (code 1600 for success)
+        if (response.getResponseCode() == 1600) {
+            std::string receivedClientID(response.getPayload().begin(), response.getPayload().begin() + 16);
+            clientID_ = receivedClientID;
+            std::cout << "Sign-up successful! Received client ID (hex): ";
 
-    for (unsigned char c : clientID_) {
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c & 0xff) << " ";
-    }
-    std::cout << std::endl; } else if (code == 1601) {
-        std::cerr << "Sign-up failed! Name is already taken" << std::endl;
+            writeToFile();  // Assuming this saves the client ID to a file
+
+            // Display the received Client ID in hexadecimal format
+            for (unsigned char c : clientID_) {
+                std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c & 0xff) << " ";
+            }
+            std::cout << std::endl;
+
+            return {true, receivedClientID};
+        } else if (response.getResponseCode() == 1601) {
+            std::cerr << "Sign-up failed! Name is already taken" << std::endl;
+            return {false, ""};
+        }
+
+    } catch (const std::exception& e) {
+        std::cerr << "Error parsing response: " << e.what() << std::endl;
         return {false, ""};
     }
 
-    // Default to failure if the response is unexpected
-    return {false, ""};
+    return {false, ""};  // Default to failure
 }
+
+
 
 
 void Client::close() {
     socket_.close();
     std::cout << "Connection closed" << std::endl;
-}
-
-// Function to build a sign-up request
-std::vector<uint8_t> buildSignUpRequest(const std::string& name) {
-    std::vector<uint8_t> request;
-    std::string paddedClientID = "ClientID";  // Dummy client ID
-
-    // Ensure Client ID is exactly 16 bytes (pad with zeros if necessary)
-    if (paddedClientID.size() < 16) {
-        paddedClientID.append(16 - paddedClientID.size(), '\0');  // Pad with null bytes
-    }
-
-    // Add padded Client ID to the request (16 bytes)
-    request.insert(request.end(), paddedClientID.begin(), paddedClientID.end());
-
-    // Add Version (1 byte)
-    request.push_back(VERSION);
-
-    // Add Request Code (2 bytes, little-endian)
-    request.push_back(SIGN_UP & 0xFF);         // Low byte
-    request.push_back((SIGN_UP >> 8) & 0xFF);  // High byte
-
-    // Build and encode payload
-    std::string payload = name + '\0';  // Null-terminate the name
-    uint32_t payloadsize = static_cast<uint32_t>(payload.size());
-
-    // Payload Size (4 bytes, little-endian)
-    request.push_back(payloadsize & 0xFF);
-    request.push_back((payloadsize >> 8) & 0xFF);
-    request.push_back((payloadsize >> 16) & 0xFF);
-    request.push_back((payloadsize >> 24) & 0xFF);
-
-    // Add Payload to request
-    request.insert(request.end(), payload.begin(), payload.end());
-
-    return request;
 }
 
 void savePrivateKeyToFile(const CryptoPP::RSA::PrivateKey& privateKey, const std::string& filename = "priv.key") {
@@ -256,55 +227,19 @@ std::pair<std::string, std::string> generateRSAKeyPair() {
     return {publicKeyStr, privateKeyStr};
 }
 
-std::vector<uint8_t> Client::buildSendPublicKey(const std::string& publicKey) const {
-    std::vector<uint8_t> request;
-
-    std::vector<uint8_t> nameField(255, 0);
-    std::memcpy(nameField.data(), name_.c_str(), std::min<size_t>(name_.length(), 254));
-    request.insert(request.end(), nameField.begin(), nameField.end());
-
-    std::vector<uint8_t> publicKeyField(160, 0);
-    std::memcpy(publicKeyField.data(), publicKey.data(), std::min<size_t>(publicKey.length(), 160));
-    request.insert(request.end(), publicKeyField.begin(), publicKeyField.end());
-
-    return request;  // The full payload (name + public key)
-}
 
 bool Client::sendPublicKey(const std::string& publicKey) {
-    // Build the public key request using the member function
-    std::vector<uint8_t> payload = buildSendPublicKey(publicKey);
+    // Create a Request object for sending the public key
+    Request request(clientID_, VERSION, RequestCode::SEND_PUBLIC_KEY);  // 826 for sending public key request code
 
-    // Create the full request (header + payload)
-    std::vector<uint8_t> request;
+    // Build the sendPublicKey request by adding the payload (name + public key)
+    request.buildSendPublicKey(name_, publicKey);
 
-    // Add Client ID (16 bytes)
-    std::vector<uint8_t> clientIDField(16, 0);  // Client ID is 16 bytes
-    std::memcpy(clientIDField.data(), clientID_.data(), std::min<size_t>(clientID_.length(), 16));
-    request.insert(request.end(), clientIDField.begin(), clientIDField.end());
+    // Get the full request (header + payload) and send it to the server
+    std::vector<uint8_t> fullRequest = request.getRequest();
+    send(fullRequest);
 
-    // Add version (1 byte)
-    uint8_t version = 1;  // Assuming version is 1
-    request.push_back(version);
-
-    // Add request code (2 bytes)
-    uint16_t publicKeyCode = 826;
-    request.push_back(publicKeyCode & 0xFF);         // Low byte
-    request.push_back((publicKeyCode >> 8) & 0xFF);  // High byte
-
-    // Add payload size (4 bytes)
-    uint32_t payloadSize = static_cast<uint32_t>(payload.size());
-    request.push_back(payloadSize & 0xFF);
-    request.push_back((payloadSize >> 8) & 0xFF);
-    request.push_back((payloadSize >> 16) & 0xFF);
-    request.push_back((payloadSize >> 24) & 0xFF);
-
-    // Append the payload (name + public key)
-    request.insert(request.end(), payload.begin(), payload.end());
-
-    // Send the full request to the server
-    send(request);
-
-    // Receive and process the server's response
+    // Receive the server's response
     std::vector<uint8_t> response = receive();
 
     if (response.empty()) {
@@ -324,3 +259,4 @@ bool Client::sendPublicKey(const std::string& publicKey) {
         return false;
     }
 }
+
