@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 from typing import Optional, Tuple
 
@@ -7,6 +8,7 @@ class DBHandler:
         """Initialize the database connection."""
         self.connection = sqlite3.connect(db_file)
         self.create_tables()
+        print(f"Database connection established: {db_file}")
 
     def create_tables(self):
         """Create the clients and files tables if they don't exist."""
@@ -33,12 +35,28 @@ class DBHandler:
 
         self.connection.commit()
 
-    def insert_client(self, client_id: bytes, name: str, public_key: bytes, last_seen: str, aes_key: bytes):
+    def insert_client(self, client_id: bytes, name: bytes, public_key: bytes, last_seen: str, aes_key: bytes):
         """Insert a new client into the clients table."""
+        name = name.rstrip(b'\x00').decode('utf-8')
+
         cursor = self.connection.cursor()
         cursor.execute('''INSERT INTO clients (ID, Name, PublicKey, LastSeen, AESKey)
                           VALUES (?, ?, ?, ?, ?)''', (client_id, name, public_key, last_seen, aes_key))
         self.connection.commit()
+        logging.info(f"Inserted new client: {name} with ID: {client_id}")
+
+    def is_registered(self, client_name: str) -> bool:
+        """Check if a client with the given name is registered."""
+        client_name = client_name.rstrip('\x00')
+
+        logging.info(f"Checking if client is registered: {client_name}")
+
+        cursor = self.connection.cursor()
+        cursor.execute('SELECT 1 FROM clients WHERE Name = ?', (client_name,))
+        if ((row := cursor.fetchone()) is not None):
+            logging.info(f"DB Row: {row}")
+            return True
+        return False
 
     def get_client(self, client_id: bytes) -> Optional[Tuple]:
         """Fetch a client by ID."""
