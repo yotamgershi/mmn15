@@ -1,10 +1,8 @@
-import socket
 from server import Server
 
 
 def main():
-    localhost = socket.gethostbyname(socket.gethostname())
-    my_server = Server(localhost)
+    my_server = Server()
     my_server.start()
 
 
