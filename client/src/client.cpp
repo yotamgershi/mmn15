@@ -1,8 +1,7 @@
 #include <boost/asio.hpp>
 #include <iostream>
 #include <string>
-
-#include "client.hpp"
+#include <vector>
 
 int VERSION = 3;
 
@@ -14,6 +13,21 @@ enum RequestCode {
     CRC_VALID = 900,
     CRC_INVALID = 901,
     CRC_INVALID_4TH_TIME = 902
+};
+
+class Client {
+public:
+    Client(const std::string& host, const std::string& port);
+    void connect();
+    void send(const std::vector<uint8_t>& data);
+    void close();
+
+private:
+    boost::asio::io_context io_context_;
+    boost::asio::ip::tcp::resolver resolver_;
+    boost::asio::ip::tcp::socket socket_;
+    std::string host_;
+    std::string port_;
 };
 
 Client::Client(const std::string& host, const std::string& port)
@@ -47,22 +61,12 @@ void Client::close() {
     std::cout << "Connection closed" << std::endl;
 }
 
-SignUpRequest::SignUpRequest(const std::string& clientID, const std::string& name) {
-    clientID_ = clientID;
-    version_ = VERSION;
-    code_ = 825;
-    payloadsize_ = name.size();
-    name_ = name;
-
-    if (name_.size() > 255)
-        name_ = name_.substr(0, 254);
-}
-
-std::vector<uint8_t> SignUpRequest::buildRequest() {
+// Function to build a sign-up request
+std::vector<uint8_t> buildSignUpRequest(const std::string& clientID, const std::string& name) {
     std::vector<uint8_t> request;
+    std::string paddedClientID = clientID;
 
     // Ensure Client ID is exactly 16 bytes (pad with zeros if necessary)
-    std::string paddedClientID = clientID_;
     if (paddedClientID.size() < 16) {
         paddedClientID.append(16 - paddedClientID.size(), '\0');  // Pad with null bytes
     }
@@ -71,25 +75,24 @@ std::vector<uint8_t> SignUpRequest::buildRequest() {
     request.insert(request.end(), paddedClientID.begin(), paddedClientID.end());
 
     // Add Version (1 byte)
-    request.push_back(version_);
+    request.push_back(VERSION);
 
     // Add Request Code (2 bytes, little-endian)
-    request.push_back(code_ & 0xFF);         // Low byte
-    request.push_back((code_ >> 8) & 0xFF);  // High byte
+    request.push_back(SIGN_UP & 0xFF);         // Low byte
+    request.push_back((SIGN_UP >> 8) & 0xFF);  // High byte
 
     // Build and encode payload
-    std::string payload = name_ + '\0';  // Null-terminate the name
-    payloadsize_ = payload.size();
+    std::string payload = name + '\0';  // Null-terminate the name
+    uint32_t payloadsize = static_cast<uint32_t>(payload.size());
 
-        // Payload Size (4 bytes, little-endian)
-        request.push_back(payloadsize_ & 0xFF);
-        request.push_back((payloadsize_ >> 8) & 0xFF);
-        request.push_back((payloadsize_ >> 16) & 0xFF);
-        request.push_back((payloadsize_ >> 24) & 0xFF);
+    // Payload Size (4 bytes, little-endian)
+    request.push_back(payloadsize & 0xFF);
+    request.push_back((payloadsize >> 8) & 0xFF);
+    request.push_back((payloadsize >> 16) & 0xFF);
+    request.push_back((payloadsize >> 24) & 0xFF);
 
     // Add Payload to request
     request.insert(request.end(), payload.begin(), payload.end());
 
     return request;
 }
-

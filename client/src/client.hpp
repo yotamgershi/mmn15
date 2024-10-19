@@ -21,25 +21,7 @@ private:
     std::string port_;
 };
 
-class Request {
-public:
-    virtual std::vector<uint8_t> buildRequest() = 0;
-    virtual ~Request() = default;
-
-protected:
-    std::string clientID_;
-    uint8_t version_;
-    uint16_t code_;
-    uint32_t payloadsize_;
-};
-
-class SignUpRequest : public Request {
-public:
-    SignUpRequest(const std::string& clientID, const std::string& name);
-    std::vector<uint8_t> buildRequest() override;
-
-private:
-    std::string name_;
-};
+// Function to build a sign-up request
+std::vector<uint8_t> buildSignUpRequest(const std::string& clientID, const std::string& name);
 
 #endif // CLIENT_HPP
