@@ -1,9 +1,36 @@
+# Ignore Python bytecode and cache directories
 *.pyc
 __pycache__/
+*/__pycache__/
+
+# Ignore flake8 configuration
 .flake8
+
+# Ignore SQLite database files
 *.sqlite3
+*.db
+
+# Ignore info and text files
 *.info
 *.txt
-*/__pycache__/
-*.db
-*.vscode
+
+# Ignore VSCode directory and settings
+.vscode/
+
+# Ignore CMake build files and directories
+client/CMakeFiles/
+client/Debug/
+client/cppclient.dir/
+client/x64/
+client/CMakeCache.txt
+client/ALL_BUILD.*
+client/cppclient.*
+client/ZERO_CHECK.*
+client/cmake_install.cmake
+
+# Optionally ignore other common build artifacts (like build directories)
+build/
+dist/
+
+# Ignore external dependencies
+ext/
