@@ -5,6 +5,12 @@
 #include <string>
 #include <vector>
 #include <iomanip>
+#include <cryptopp/rsa.h>
+#include <cryptopp/osrng.h>
+#include <cryptopp/base64.h>
+#include <cryptopp/files.h>
+#include <cryptopp/hex.h>
+#include <cstring>
 
 #include "client.hpp"
 
@@ -202,3 +208,119 @@ std::vector<uint8_t> buildSignUpRequest(const std::string& name) {
     return request;
 }
 
+void savePrivateKeyToFile(const CryptoPP::RSA::PrivateKey& privateKey, const std::string& filename = "priv.key") {
+    using namespace CryptoPP;
+
+    // Create a file to store the private key
+    FileSink file(filename.c_str());
+
+    // Use Base64Encoder to make it readable
+    Base64Encoder encoder(new Redirector(file));
+    privateKey.DEREncode(encoder);  // Encode private key in DER format
+    encoder.MessageEnd();  // Complete the encoding process
+
+    std::cout << "Private key saved to " << filename << std::endl;
+}
+
+std::pair<std::string, std::string> generateRSAKeyPair() {
+    using namespace CryptoPP;
+    
+    // Random number generator
+    AutoSeededRandomPool rng;
+
+    // Generate RSA private key (2048 bits)
+    RSA::PrivateKey privateKey;
+    privateKey.GenerateRandomWithKeySize(rng, 2048);
+
+    // Generate corresponding RSA public key
+    RSA::PublicKey publicKey(privateKey);
+
+    // Save the keys in PEM or base64 encoded strings
+    std::string publicKeyStr, privateKeyStr;
+
+    // Convert private key to string (Base64 format)
+    StringSink privateSink(privateKeyStr);
+    Base64Encoder privateEncoder(new Redirector(privateSink));
+    privateKey.DEREncode(privateEncoder);
+    privateEncoder.MessageEnd();
+
+    // Convert public key to string (Base64 format)
+    StringSink publicSink(publicKeyStr);
+    Base64Encoder publicEncoder(new Redirector(publicSink));
+    publicKey.DEREncode(publicEncoder);
+    publicEncoder.MessageEnd();
+
+    // Save private key to priv.key
+    savePrivateKeyToFile(privateKey, "priv.key");
+
+    return {publicKeyStr, privateKeyStr};
+}
+
+std::vector<uint8_t> Client::buildSendPublicKey(const std::string& publicKey) const {
+    std::vector<uint8_t> request;
+
+    std::vector<uint8_t> nameField(255, 0);
+    std::memcpy(nameField.data(), name_.c_str(), std::min<size_t>(name_.length(), 254));
+    request.insert(request.end(), nameField.begin(), nameField.end());
+
+    std::vector<uint8_t> publicKeyField(160, 0);
+    std::memcpy(publicKeyField.data(), publicKey.data(), std::min<size_t>(publicKey.length(), 160));
+    request.insert(request.end(), publicKeyField.begin(), publicKeyField.end());
+
+    return request;  // The full payload (name + public key)
+}
+
+bool Client::sendPublicKey(const std::string& publicKey) {
+    // Build the public key request using the member function
+    std::vector<uint8_t> payload = buildSendPublicKey(publicKey);
+
+    // Create the full request (header + payload)
+    std::vector<uint8_t> request;
+
+    // Add Client ID (16 bytes)
+    std::vector<uint8_t> clientIDField(16, 0);  // Client ID is 16 bytes
+    std::memcpy(clientIDField.data(), clientID_.data(), std::min<size_t>(clientID_.length(), 16));
+    request.insert(request.end(), clientIDField.begin(), clientIDField.end());
+
+    // Add version (1 byte)
+    uint8_t version = 1;  // Assuming version is 1
+    request.push_back(version);
+
+    // Add request code (2 bytes)
+    uint16_t publicKeyCode = 826;
+    request.push_back(publicKeyCode & 0xFF);         // Low byte
+    request.push_back((publicKeyCode >> 8) & 0xFF);  // High byte
+
+    // Add payload size (4 bytes)
+    uint32_t payloadSize = static_cast<uint32_t>(payload.size());
+    request.push_back(payloadSize & 0xFF);
+    request.push_back((payloadSize >> 8) & 0xFF);
+    request.push_back((payloadSize >> 16) & 0xFF);
+    request.push_back((payloadSize >> 24) & 0xFF);
+
+    // Append the payload (name + public key)
+    request.insert(request.end(), payload.begin(), payload.end());
+
+    // Send the full request to the server
+    send(request);
+
+    // Receive and process the server's response
+    std::vector<uint8_t> response = receive();
+
+    if (response.empty()) {
+        std::cerr << "Error: No response received from the server." << std::endl;
+        return false;
+    }
+
+    // Process the response
+    uint8_t versionResponse = response[0];
+    uint16_t responseCode = response[1] | (response[2] << 8);
+
+    if (responseCode == 1602) {  // Assuming 1602 means public key acknowledged
+        std::cout << "Public key successfully sent and acknowledged by the server." << std::endl;
+        return true;
+    } else {
+        std::cerr << "Error: Failed to send public key. Server returned code: " << responseCode << std::endl;
+        return false;
+    }
+}
