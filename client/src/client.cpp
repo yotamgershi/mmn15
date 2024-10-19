@@ -1,8 +1,10 @@
 #include <boost/asio.hpp>
 #include <cryptopp/cryptlib.h>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
+#include <iomanip>
 
 #include "client.hpp"
 
@@ -18,8 +20,8 @@ enum RequestCode {
     CRC_INVALID_4TH_TIME = 902
 };
 
-Client::Client(const std::string& host, const std::string& port)
-    : resolver_(io_context_), socket_(io_context_), host_(host), port_(port) {}
+Client::Client(const std::string& host, const std::string& port, const std::string& name, const std::string& clientID)
+    : resolver_(io_context_), socket_(io_context_), host_(host), port_(port), name_(name), clientID_(clientID) {}
 
 void Client::connect() {
     try {
@@ -70,15 +72,59 @@ std::vector<uint8_t> Client::receive() {
     }
 }
 
-std::pair<bool, std::string> Client::signUp(const std::string& clientID, const std::string& name) {
-    // Build and send the sign-up request
-    std::vector<uint8_t> request = buildSignUpRequest(clientID, name);
+void writeClientIDToFile(const std::string& clientID, const std::string& filename = "me.info") {
+    std::ofstream outFile(filename);
+    if (!outFile) {
+        std::cerr << "Error: Could not create or open the file: " << filename << std::endl;
+        return;
+    }
+    outFile << clientID;
+    std::cout << "Client ID written to " << filename << std::endl;
+}
+
+std::tuple<std::string, std::string, std::string, std::string> readTransferInfo(const std::string& filename) {
+    std::ifstream file(filename);
+    std::string serverInfo, host, port, clientName, filePath;
+
+    if (file.is_open()) {
+        std::getline(file, serverInfo);
+
+        // Parse the host and port (split by ':')
+        size_t colonPos = serverInfo.find(':');
+        if (colonPos != std::string::npos) {
+            host = serverInfo.substr(0, colonPos);
+            port = serverInfo.substr(colonPos + 1);
+        } else {
+            std::cerr << "Error: Invalid server info format in transfer.info." << std::endl;
+        }
+
+        std::getline(file, clientName);
+
+        std::getline(file, filePath);
+
+    } else {
+        std::cerr << "Error: Unable to open file: " << filename << std::endl;
+    }
+
+    return {host, port, clientName, filePath};  // Return the host, port, clientName, and filePath
+}
+
+bool fileExists(const std::string& filename) {
+    std::ifstream infile(filename);
+    return infile.good();
+}
+
+std::pair<bool, std::string> Client::signUp() {
+    if (fileExists("me.info")) {
+        std::cerr << "Error: Client ID already exists. Please delete 'me.info' to sign up again." << std::endl;
+        return {false, ""};
+    }
+
+    std::vector<uint8_t> request = buildSignUpRequest(name_);
     send(request);
 
-    // Use the receive function to get the server's response
     std::vector<uint8_t> response = receive();
 
-    // Check if the response is not empty
     if (response.empty()) {
         return {false, ""};
     }
@@ -89,11 +135,16 @@ std::pair<bool, std::string> Client::signUp(const std::string& clientID, const s
     uint32_t payloadSize = response[3] | (response[4] << 8) | (response[5] << 16) | (response[6] << 24);  // 4 bytes payload size
 
     if (code == 1600) {
-        std::string receivedClientID(response.begin() + 7, response.begin() + 7 + 16);
-        clientID_ = receivedClientID;
-        std::cout << "Sign-up successful! Received client ID: " << receivedClientID << std::endl;
-        return {true, receivedClientID};
-    } else if (code == 1601) {
+    std::string receivedClientID(response.begin() + 7, response.begin() + 7 + 16);
+    clientID_ = receivedClientID;
+    
+    std::cout << "Sign-up successful! Received client ID (hex): ";
+    writeClientIDToFile(clientID_);
+
+    for (unsigned char c : clientID_) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c & 0xff) << " ";
+    }
+    std::cout << std::endl; } else if (code == 1601) {
         std::cerr << "Sign-up failed! Name is already taken" << std::endl;
         return {false, ""};
     }
@@ -109,9 +160,9 @@ void Client::close() {
 }
 
 // Function to build a sign-up request
-std::vector<uint8_t> buildSignUpRequest(const std::string& clientID, const std::string& name) {
+std::vector<uint8_t> buildSignUpRequest(const std::string& name) {
     std::vector<uint8_t> request;
-    std::string paddedClientID = clientID;
+    std::string paddedClientID = "ClientID";  // Dummy client ID
 
     // Ensure Client ID is exactly 16 bytes (pad with zeros if necessary)
     if (paddedClientID.size() < 16) {

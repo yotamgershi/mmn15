@@ -8,12 +8,12 @@
 
 class Client {
 public:
-    Client(const std::string& host, const std::string& port);
+    Client(const std::string& host, const std::string& port, const std::string& name, const std::string& clientID);
     void connect();
     void send(const std::vector<uint8_t>& data);
     void close();
     std::vector<uint8_t> receive();
-    std::pair<bool, std::string> signUp(const std::string& clientID, const std::string& name);
+    std::pair<bool, std::string> signUp();
 
 private:
     boost::asio::io_context io_context_;
@@ -26,7 +26,8 @@ private:
 
 };
 
-std::vector<uint8_t> buildSignUpRequest(const std::string& clientID, const std::string& name);
+std::vector<uint8_t> buildSignUpRequest(const std::string& name);
+std::tuple<std::string, std::string, std::string, std::string> readTransferInfo(const std::string& filename);
 
 
 #endif // CLIENT_HPP

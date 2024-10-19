@@ -1,21 +1,19 @@
 #include "client.hpp"
+#include <iostream>
+#include <fstream>
 #include <string>
 #include <chrono>
 #include <thread>
 
 int main()
 {
-    std::string host = "localhost";
-    std::string port = "1234";
-    Client client(host, port);
+    auto [host, port, clientName, filePath] = readTransferInfo("transfer.info"); 
+
+    Client client(host, port, clientName, filePath);
     client.connect();
 
-    // Input data
-    std::string name = "dew3";
-    std::string clientID = "1234567890";
-
     // Sign up
-    auto [success, receivedClientID] = client.signUp(clientID, name);
+    auto [success, receivedClientID] = client.signUp();
     
     // Simulate some delay
     std::this_thread::sleep_for(std::chrono::seconds(1));
