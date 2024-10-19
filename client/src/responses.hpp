@@ -8,6 +8,7 @@
 enum ResponseCodes {
     SIGN_UP_SUCCESS = 1600,
     SIGN_UP_FAILURE = 1601,
+    PUBLIC_KEY_RECEIVED = 1602,
 };
 
 class Response {
@@ -20,6 +21,8 @@ public:
     uint16_t getResponseCode() const { return responseCode_; }
     uint32_t getPayloadSize() const { return payloadSize_; }
     const std::vector<uint8_t>& getPayload() const { return payload_; }
+    std::string Response::getAesKey() const {return std::string(payload_.begin() + 16, payload_.end());
+}
 
     // Specific parsing functions for different request codes
     void parseSignUpSuccessResponse();

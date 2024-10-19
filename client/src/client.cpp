@@ -145,7 +145,7 @@ std::pair<bool, std::string> Client::signUp() {
         Response response(rawResponse);
 
         // Check if the sign-up was successful (code 1600 for success)
-        if (response.getResponseCode() == 1600) {
+        if (response.getResponseCode() == ResponseCodes::SIGN_UP_SUCCESS) {
             std::string receivedClientID(response.getPayload().begin(), response.getPayload().begin() + 16);
             clientID_ = receivedClientID;
             std::cout << "Sign-up successful! Received client ID (hex): ";
@@ -192,7 +192,7 @@ void savePrivateKeyToFile(const CryptoPP::RSA::PrivateKey& privateKey, const std
     std::cout << "Private key saved to " << filename << std::endl;
 }
 
-std::pair<std::string, std::string> generateRSAKeyPair() {
+std::pair<std::string, std::string> Client::generateRSAKeyPair() {
     using namespace CryptoPP;
     
     // Random number generator
@@ -220,10 +220,13 @@ std::pair<std::string, std::string> generateRSAKeyPair() {
     publicKey.DEREncode(publicEncoder);
     publicEncoder.MessageEnd();
 
-    // Save private key to priv.key
+    // Save the private key to the private_key_ attribute in the Client class
+    this->private_key_ = privateKeyStr;
+
+    // Optionally, save private key to a file (priv.key)
     savePrivateKeyToFile(privateKey, "priv.key");
 
-    return {publicKeyStr, privateKeyStr};
+    return {publicKeyStr, privateKeyStr};  // Return the public and private key strings
 }
 
 
@@ -247,9 +250,14 @@ bool Client::sendPublicKey(const std::string& publicKey) {
     try {
         Response serverResponse(response);
 
-        // Check if the response code indicates success (1602 for public key acknowledgment)
-        if (serverResponse.getResponseCode() == 1602) {
-            std::cout << "Public key successfully sent and acknowledged by the server." << std::endl;
+        // Check if the response code indicates success (1600 for AES key reception, 1602 for acknowledgment)
+        if (serverResponse.getResponseCode() == ResponseCodes::PUBLIC_KEY_RECEIVED) {
+            aes_key_ = serverResponse.getAesKey();
+
+            std::cout << "Public key sent. AES key received and stored successfully." << std::endl;
+            return true;
+        } else if (serverResponse.getResponseCode() == 1602) {
+            std::cout << "Public key successfully acknowledged by the server." << std::endl;
             return true;
         } else {
             std::cerr << "Error: Failed to send public key. Server returned code: " << serverResponse.getResponseCode() << std::endl;
@@ -260,4 +268,3 @@ bool Client::sendPublicKey(const std::string& publicKey) {
         return false;
     }
 }
-

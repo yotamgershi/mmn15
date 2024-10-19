@@ -15,8 +15,11 @@ int main()
     // Sign up
     auto [success, receivedClientID] = client.signUp();
     
-    // Simulate some delay
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    // If sign-up was successful, generate RSA key pair and send public key
+    if (success) {
+        auto [publicKeyStr, privateKeyStr] = client.generateRSAKeyPair();
+        client.sendPublicKey(publicKeyStr);
+    }
 
     // Close the connection
     client.close();    
