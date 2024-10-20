@@ -116,6 +116,25 @@ class DBHandler:
         else:
             raise ValueError(f"No AES key found for client {client_id.hex()}")
 
+    def set_rsa_key(self, client_id: bytes, rsa_key: bytes) -> bool:
+        """
+        Updates the RSA key for a given client ID in the database.
+        """
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("""
+                UPDATE clients
+                SET RSAKey = ?
+                WHERE ID = ?
+            """, (rsa_key, client_id))
+
+            self.connection.commit()
+            logging.info(f"Updated RSA key for client {client_id.hex()}")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to update RSA key for client {client_id.hex()}: {e}")
+            return False
+
     def close(self):
         """Close the database connection."""
         self.connection.close()

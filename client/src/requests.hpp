@@ -39,6 +39,6 @@ private:
     void buildSendPublicKeyRequest(const std::string& name, const std::string& publicKey);
 };
 
-
+// asdasd
 
 #endif // REQUEST_HPP

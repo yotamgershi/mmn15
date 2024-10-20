@@ -235,8 +235,6 @@ void Client::saveAESKeyToFile(const std::string& filename) {
     std::cout << "AES key saved to " << filename << std::endl;
 }
 
-
-
 bool Client::sendPublicKey() {
     if (public_key_.empty()) {
         std::cerr << "Error: Public key not set. Please generate RSA keys first." << std::endl;

@@ -4,6 +4,9 @@ from uuid import uuid4
 from datetime import datetime
 from client_responses import Response, ResponseCode
 from db_handler import DBHandler
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+import base64
 
 
 class RequestCode:
@@ -82,7 +85,10 @@ class Request:
         logging.info(f"Send public key request received: client_id={self.client_id}, payload={self.payload.hex()}")
 
         client_id = self.client_id  # Keep as binary
-        public_key = self.payload  # The payload is binary data (public key)
+        name = self.payload[:255].rstrip(b'\x00').decode('ascii')
+        public_key = self.payload[255:415]  # 160 bytes for the public key
+
+        logging.info(f"Extracted name: {name}, public key: {public_key.hex()}")
 
         # Update the public key (binary) in the database
         db_hand.update_public_key(client_id, public_key)
@@ -90,8 +96,35 @@ class Request:
         # Retrieve the AES key for the client from the database
         aes_key = db_hand.get_aes_key(client_id)
 
-        # Construct the payload: 16-byte client ID + AES key
-        response_payload = client_id + aes_key
+        # Encrypt the AES key with the client's public RSA key
+        encrypted_aes_key = encrypt_aes_key_with_rsa(aes_key, public_key)
 
-        # Return a response with the AES key included in the payload
+        # Construct the payload: 16-byte client ID + encrypted AES key
+        response_payload = client_id + encrypted_aes_key
+
+        # Return a response with the encrypted AES key included in the payload
         return Response(code=ResponseCode.RECEIVE_PUBLIC_KEY, payload=response_payload)
+
+
+def encrypt_aes_key_with_rsa(aes_key: bytes, public_key: bytes) -> bytes:
+    try:
+        logging.info("Encrypting AES key with RSA...")
+        logging.info(f"AES key: {aes_key.hex()}")
+        logging.info(f"Public key: {public_key.hex()}")
+
+        # Load the RSA public key from the received payload (DER or PEM)
+        rsa_key = RSA.import_key(public_key)
+
+        # Use PKCS1_OAEP for RSA encryption
+        logging.info(f"Encrypting AES key with RSA public key: {rsa_key}")
+        cipher_rsa = PKCS1_OAEP.new(rsa_key)
+
+        # Encrypt the AES key using the public key
+        logging.info(f"Encrypting AES key: {aes_key.hex()}")
+        encrypted_aes_key = cipher_rsa.encrypt(aes_key)
+
+        return encrypted_aes_key
+    except Exception as e:
+        logging.error(f"Error during RSA encryption: {e}")
+        raise
+
