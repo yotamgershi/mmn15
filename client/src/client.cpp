@@ -111,7 +111,7 @@ std::pair<bool, std::string> Client::signUp() {
     // Check if the client ID already exists to avoid duplicate sign-up
     if (fileExists("me.info")) {
         std::cerr << "Error: Client ID already exists. Please delete 'me.info' to sign up again." << std::endl;
-        return {false, ""};
+        // return {false, ""};
     }
 
     // Create the sign-up request (constructor will handle header and payload)

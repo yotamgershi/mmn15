@@ -8,6 +8,7 @@ from db_handler import DBHandler
 
 class RequestCode:
     SIGN_UP = 825
+    SEND_PUBLIC_KEY = 826
 
 
 class Request:
@@ -25,6 +26,11 @@ class Request:
         self.code = self.header[2]
         self.payload_size = self.header[3]
         self.payload = self.header[4]
+
+        if self.payload_size > Request.MAX_PAYLOAD_SIZE:
+            raise ValueError(f"Invalid request: payload size exceeds maximum size of {Request.MAX_PAYLOAD_SIZE}")
+        if len(self.payload) != self.payload_size:
+            raise ValueError(f"Invalid request: payload size {self.payload_size} does not match actual size {len(self.payload)}")
 
     @staticmethod
     def parse_header(data: bytes) -> Tuple[bytes, int, int, int, bytes]:
@@ -48,12 +54,16 @@ class Request:
         return client_id, version, code, payload_size, payload
 
     def __str__(self):
-        clean_payload = self.payload.decode('utf-8').replace('\0', '')
+        try:
+            # Attempt to decode payload as UTF-8 if possible, otherwise show it as hex for binary data
+            clean_payload = self.payload.decode('utf-8').replace('\0', '')
+        except UnicodeDecodeError:
+            clean_payload = self.payload.hex()  # Display binary data as hex
+
         clean_client_id = self.client_id.decode('utf-8').replace('\0', '')
         return f"Request(client_id={clean_client_id}, version={self.version}, code={self.code}, payload_size={self.payload_size}, payload={clean_payload})"
 
     def handle_sign_up(self, db_hand: DBHandler) -> Response:
-        # self.payload = self.payload.ljust(self.MAX_PAYLOAD_SIZE, b'\0')
         logging.info(f"Sign up request received: \n{str(self)}")
         client_name = self.payload.decode('utf-8').replace('\0', '').strip()
 
@@ -64,3 +74,17 @@ class Request:
             return response
 
         return Response(code=ResponseCode.SIGN_UP_ERROR, payload='Client already registered')
+
+    def __bytes__(self) -> bytes:
+        return b''.join(self.header) + self.payload
+
+    def handle_send_public_key(self, db_hand: DBHandler) -> Response:
+        # logging.info(f"Send public key request received: \n{str(self)}")
+        client_id = self.client_id  # Keep as binary
+        public_key = self.payload  # The payload is binary data (public key)
+
+        # Store the public key (binary) in the database
+        db_hand.update_public_key(client_id, public_key)
+
+        # Return a textual response confirming receipt
+        return Response(code=ResponseCode.RECEIVE_PUBLIC_KEY, payload='Public key received')

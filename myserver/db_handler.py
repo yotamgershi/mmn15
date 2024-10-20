@@ -85,6 +85,25 @@ class DBHandler:
         cursor.execute('SELECT * FROM files WHERE ID = ? AND FileName = ?', (client_id, file_name))
         return cursor.fetchone()
 
+    def update_public_key(self, client_id: bytes, public_key: bytes) -> bool:
+        """
+        Updates the public key for a given client ID in the database.
+        """
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("""
+                UPDATE clients
+                SET PublicKey = ?
+                WHERE ID = ?
+            """, (public_key, client_id))
+
+            self.connection.commit()
+            logging.info(f"Updated public key for client {client_id.hex()}")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to update public key for client {client_id.hex()}: {e}")
+            return False
+
     def close(self):
         """Close the database connection."""
         self.connection.close()

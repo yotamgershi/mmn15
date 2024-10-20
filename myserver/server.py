@@ -73,6 +73,11 @@ class Server:
                 response = request.handle_sign_up(self.db_handler)
                 conn.sendall(response.to_bytes())
                 logging.info(f"Sent response: {response}")
+            case RequestCode.SEND_PUBLIC_KEY:
+                logging.info("Received SEND_PUBLIC_KEY request")
+                response = request.handle_send_public_key(self.db_handler)
+                conn.sendall(response.to_bytes())
+                logging.info(f"Sent response: {response}")
             case _:
                 logging.error(f"Unknown request code: {request.code}")
 
