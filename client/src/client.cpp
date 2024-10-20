@@ -15,6 +15,9 @@
 #include "client.hpp"
 #include "requests.hpp"
 #include "responses.hpp"
+#include "AESWrapper.h"
+#include "Base64Wrapper.h"
+#include "RSAWrapper.h"
 
 int VERSION = 3;
 
@@ -71,23 +74,6 @@ std::vector<uint8_t> Client::receive() {
         return {};  // Return empty vector in case of error
     }
 }
-
-void Client::writeToFile(const std::string& filename = "me.info") {
-    std::ofstream outFile(filename);
-    if (!outFile) {
-        std::cerr << "Error: Could not create or open the file: " << filename << std::endl;
-        return;
-    }
-
-    outFile << name_ << std::endl;
-    for (unsigned char c : clientID_) {
-        outFile << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c & 0xff) << " ";
-    }
-    outFile << std::endl;
-
-    std::cout << "Client ID and name written to " << filename << " (plain and hex format)" << std::endl;
-}
-
 
 std::tuple<std::string, std::string, std::string, std::string> readTransferInfo(const std::string& filename) {
     std::ifstream file(filename);
@@ -150,8 +136,6 @@ std::pair<bool, std::string> Client::signUp() {
             clientID_ = receivedClientID;
             std::cout << "Sign-up successful! Received client ID (hex): ";
 
-            writeToFile();  // Assuming this saves the client ID to a file
-
             // Display the received Client ID in hexadecimal format
             for (unsigned char c : clientID_) {
                 std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c & 0xff) << " ";
@@ -178,61 +162,89 @@ void Client::close() {
     std::cout << "Connection closed" << std::endl;
 }
 
-void savePrivateKeyToFile(const CryptoPP::RSA::PrivateKey& privateKey, const std::string& filename = "priv.key") {
-    using namespace CryptoPP;
+void Client::writeToMeInfo(Base64Wrapper& base64, const std::string& clientName, const std::string& aesKey, const std::string& clientID) {
+    std::ofstream meFile("me.info");
+    if (!meFile) {
+        std::cerr << "Error: Unable to open me.info for writing." << std::endl;
+        return;
+    }
 
-    // Create a file to store the private key
-    FileSink file(filename.c_str());
+    // Write client name
+    meFile << clientName << std::endl;
 
-    // Use Base64Encoder to make it readable
-    Base64Encoder encoder(new Redirector(file));
-    privateKey.DEREncode(encoder);  // Encode private key in DER format
-    encoder.MessageEnd();  // Complete the encoding process
+    // Convert client ID to hex format
+    std::ostringstream oss;
+    for (unsigned char c : clientID) {
+        oss << std::hex << std::setw(2) << std::setfill('0') << (int)(c & 0xff);
+    }
 
-    std::cout << "Private key saved to " << filename << std::endl;
-}
+    // Write client ID in hex format
+    meFile << oss.str() << std::endl;
 
-std::pair<std::string, std::string> Client::generateRSAKeyPair() {
-    using namespace CryptoPP;
-    
-    // Random number generator
-    AutoSeededRandomPool rng;
-
-    // Generate RSA private key (2048 bits)
-    RSA::PrivateKey privateKey;
-    privateKey.GenerateRandomWithKeySize(rng, 2048);
-
-    // Generate corresponding RSA public key
-    RSA::PublicKey publicKey(privateKey);
-
-    // Save the keys in PEM or base64 encoded strings
-    std::string publicKeyStr, privateKeyStr;
-
-    // Convert private key to string (Base64 format)
-    StringSink privateSink(privateKeyStr);
-    Base64Encoder privateEncoder(new Redirector(privateSink));
-    privateKey.DEREncode(privateEncoder);
-    privateEncoder.MessageEnd();
-
-    // Convert public key to string (Base64 format)
-    StringSink publicSink(publicKeyStr);
-    Base64Encoder publicEncoder(new Redirector(publicSink));
-    publicKey.DEREncode(publicEncoder);
-    publicEncoder.MessageEnd();
-
-    // Save the private key to the private_key_ attribute in the Client class
-    this->private_key_ = privateKeyStr;
-
-    // Optionally, save private key to a file (priv.key)
-    savePrivateKeyToFile(privateKey, "priv.key");
-
-    return {publicKeyStr, privateKeyStr};  // Return the public and private key strings
+    // Convert AES key to Base64 using Base64Wrapper::encode
+    std::string aesKeyBase64 = base64.encode(aesKey);
+    meFile << aesKeyBase64 << std::endl;
+    meFile.close();
 }
 
 
-bool Client::sendPublicKey(const std::string& publicKey) {
+void Client::createAndSaveAESKey() {
+    // Create AES keys (adapted for AES instead of RSA)
+    Base64Wrapper base64;
+    AESWrapper aesWrapper;
+
+    // Set AES key for the client
+    this->setAESKey(aesWrapper.getKey());
+    if (this->aes_key_[0] == '\0') {
+    std::cerr << "Error: AES key not generated or set." << std::endl;
+    return;
+    }
+
+    std::string aesKeyStr(reinterpret_cast<const char*>(this->aes_key_), DEFAULT_KEYLENGTH);
+    std::cout << "AES key generated successfully: " << base64.encode(aesKeyStr) << std::endl;
+
+
+    // Save the AES key to "priv.key"
+    saveAESKeyToFile();  // This will save the key to "priv.key" by default
+
+    // Create 'me.info' to store client info and AES key
+    // std::string aesKeyStr(reinterpret_cast<const char*>(this->aes_key_), DEFAULT_KEYLENGTH);
+    writeToMeInfo(base64, this->name_, aesKeyStr, this->clientID_);
+
+}
+
+void Client::saveAESKeyToFile(const std::string& filename) {
+    Base64Wrapper base64;
+    // Convert unsigned char[] to std::string
+    std::string aesKeyStr(reinterpret_cast<const char*>(this->aes_key_), DEFAULT_KEYLENGTH);
+
+    // Encode the AES key in Base64 format
+    std::string aesKeyBase64 = base64.encode(aesKeyStr);
+
+    // Open the file to write the AES key (default is priv.key)
+    std::ofstream outFile(filename);
+    if (!outFile) {
+        std::cerr << "Error: Could not create or open the file: " << filename << std::endl;
+        return;
+    }
+
+    // Write the Base64 encoded AES key to the file
+    outFile << aesKeyBase64 << std::endl;
+
+    outFile.close();
+    std::cout << "AES key saved to " << filename << std::endl;
+}
+
+
+
+bool Client::sendPublicKey() {
+    if (public_key_.empty()) {
+        std::cerr << "Error: Public key not set. Please generate RSA keys first." << std::endl;
+        return false;
+    }
+
     // Create the request for sending the public key (constructor will handle header and payload)
-    Request request(clientID_, VERSION, RequestCode::SEND_PUBLIC_KEY, name_, publicKey);
+    Request request(clientID_, VERSION, RequestCode::SEND_PUBLIC_KEY, name_, public_key_);
 
     // Get the full request (header + payload) and send it to the server
     std::vector<uint8_t> fullRequest = request.getRequest();
@@ -252,7 +264,7 @@ bool Client::sendPublicKey(const std::string& publicKey) {
 
         // Check if the response code indicates success (1600 for AES key reception, 1602 for acknowledgment)
         if (serverResponse.getResponseCode() == ResponseCodes::PUBLIC_KEY_RECEIVED) {
-            aes_key_ = serverResponse.getAesKey();
+            std::memcpy(this->aes_key_, serverResponse.getAesKey().data(), DEFAULT_KEYLENGTH);
 
             std::cout << "Public key sent. AES key received and stored successfully." << std::endl;
             return true;
@@ -267,4 +279,13 @@ bool Client::sendPublicKey(const std::string& publicKey) {
         std::cerr << "Error processing server response: " << e.what() << std::endl;
         return false;
     }
+}
+
+void hexify(const unsigned char* buffer, unsigned int length)
+{
+	std::ios::fmtflags f(std::cout.flags());
+    	for (size_t i = 0; i < length; i++)
+		std::cout << std::setfill('0') << std::setw(2) << (0xFF & buffer[i]) << (((i + 1) % 16 == 0) ? "\n" : " ");
+	std::cout << std::endl;
+	std::cout.flags(f);
 }
