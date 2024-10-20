@@ -104,6 +104,18 @@ class DBHandler:
             logging.error(f"Failed to update public key for client {client_id.hex()}: {e}")
             return False
 
+    def get_aes_key(self, client_id: bytes) -> bytes:
+        cursor = self.connection.cursor()
+        cursor.execute("""
+            SELECT AESKey FROM clients WHERE ID = ?
+        """, (client_id,))
+        result = cursor.fetchone()
+
+        if result:
+            return result[0]  # AES key is stored as the first column
+        else:
+            raise ValueError(f"No AES key found for client {client_id.hex()}")
+
     def close(self):
         """Close the database connection."""
         self.connection.close()

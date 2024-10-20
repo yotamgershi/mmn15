@@ -79,12 +79,19 @@ class Request:
         return b''.join(self.header) + self.payload
 
     def handle_send_public_key(self, db_hand: DBHandler) -> Response:
-        # logging.info(f"Send public key request received: \n{str(self)}")
+        logging.info(f"Send public key request received: client_id={self.client_id}, payload={self.payload.hex()}")
+
         client_id = self.client_id  # Keep as binary
         public_key = self.payload  # The payload is binary data (public key)
 
-        # Store the public key (binary) in the database
+        # Update the public key (binary) in the database
         db_hand.update_public_key(client_id, public_key)
 
-        # Return a textual response confirming receipt
-        return Response(code=ResponseCode.RECEIVE_PUBLIC_KEY, payload='Public key received')
+        # Retrieve the AES key for the client from the database
+        aes_key = db_hand.get_aes_key(client_id)
+
+        # Construct the payload: 16-byte client ID + AES key
+        response_payload = client_id + aes_key
+
+        # Return a response with the AES key included in the payload
+        return Response(code=ResponseCode.RECEIVE_PUBLIC_KEY, payload=response_payload)
