@@ -46,18 +46,21 @@ class DBHandler:
         self.connection.commit()
         logging.info(f"Inserted new client: {name} with ID: {client_id}")
 
-    def is_registered(self, client_name: str) -> bool:
-        """Check if a client with the given name is registered."""
+    def is_registered(self, client_name: str) -> Optional[str]:
+        """Check if a client with the given name is registered and return the client_id."""
         client_name = client_name.rstrip('\x00')
 
         logging.info(f"Checking if client is registered: {client_name}")
 
         cursor = self.connection.cursor()
-        cursor.execute('SELECT 1 FROM clients WHERE Name = ?', (client_name,))
-        if ((row := cursor.fetchone()) is not None):
-            logging.info(f"DB Row: {row}")
-            return True
-        return False
+        cursor.execute('SELECT ClientID FROM clients WHERE Name = ?', (client_name,))
+
+        if (row := cursor.fetchone()) is not None:
+            client_id = row[0]  # Assuming the first column is ClientID
+            logging.info(f"Client is registered. ClientID: {client_id}")
+            return client_id
+        logging.info(f"Client not found: {client_name}")
+        return None
 
     def get_client(self, client_id: bytes) -> Optional[Tuple]:
         """Fetch a client by ID."""

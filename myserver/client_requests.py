@@ -131,10 +131,12 @@ class Request:
     def handle_sign_in(self, db_hand: DBHandler) -> Response:
         logging.info(f"Sign in request received: \n{str(self)}")
         client_id = self.client_id
+        name = self.payload.decode('utf-8').replace('\0', '').strip()
 
-        if db_hand.is_registered(client_id=client_id):
-            
-            response = Response(code=ResponseCode.SIGN_IN, payload=b'')
-            return response
-
-        return Response(code=ResponseCode.SIGN_UP_ERROR, payload='Client not registered')
+        if (client_id_from_db := db_hand.is_registered(name=name)) is not None:
+            if client_id != client_id_from_db:
+                logging.info(f"Client ID mismatch: {client_id} != {client_id_from_db}")
+                return Response(code=ResponseCode.SIGN_IN_FAILURE, payload=b'')
+            db_hand.update_last_seen(client_id, datetime.now())
+            logging.info(f"Client {name} signed in successfully.")
+            return Response(code=ResponseCode.SIGN_IN_SUCCESS, payload=b'')

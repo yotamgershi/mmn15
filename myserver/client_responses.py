@@ -3,6 +3,8 @@ class ResponseCode:
     SIGN_UP_SUCCESS = 1600
     SIGN_UP_ERROR = 1601
     RECEIVE_PUBLIC_KEY = 1602
+    SIGN_IN_SUCCESS = 1605
+    SIGN_IN_FAILURE = 1606
 
 
 class Response:
