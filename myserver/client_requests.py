@@ -6,12 +6,12 @@ from client_responses import Response, ResponseCode
 from db_handler import DBHandler
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
-import base64
 
 
 class RequestCode:
     SIGN_UP = 825
     SEND_PUBLIC_KEY = 826
+    SIGN_IN = 827
 
 
 class Request:
@@ -90,41 +90,51 @@ class Request:
 
         logging.info(f"Extracted name: {name}, public key: {public_key.hex()}")
 
-        # Update the public key (binary) in the database
-        db_hand.update_public_key(client_id, public_key)
-
         # Retrieve the AES key for the client from the database
         aes_key = db_hand.get_aes_key(client_id)
 
         # Encrypt the AES key with the client's public RSA key
-        encrypted_aes_key = encrypt_aes_key_with_rsa(aes_key, public_key)
+        encrypted_aes_key = Request.encrypt_aes_key_with_rsa(aes_key, public_key)
 
         # Construct the payload: 16-byte client ID + encrypted AES key
         response_payload = client_id + encrypted_aes_key
 
+        # Update the client's keys in the database
+        db_hand.update_client_keys(client_id=client_id, public_key=public_key, aes_key=aes_key)
+
         # Return a response with the encrypted AES key included in the payload
         return Response(code=ResponseCode.RECEIVE_PUBLIC_KEY, payload=response_payload)
 
+    @staticmethod
+    def encrypt_aes_key_with_rsa(aes_key: bytes, public_key: bytes) -> bytes:
+        try:
+            logging.info("Encrypting AES key with RSA...")
+            logging.info(f"AES key: {aes_key.hex()}")
+            logging.info(f"Public key: {public_key.hex()}")
 
-def encrypt_aes_key_with_rsa(aes_key: bytes, public_key: bytes) -> bytes:
-    try:
-        logging.info("Encrypting AES key with RSA...")
-        logging.info(f"AES key: {aes_key.hex()}")
-        logging.info(f"Public key: {public_key.hex()}")
+            # Load the RSA public key from the received payload (DER or PEM)
+            rsa_key = RSA.import_key(public_key)
 
-        # Load the RSA public key from the received payload (DER or PEM)
-        rsa_key = RSA.import_key(public_key)
+            # Use PKCS1_OAEP for RSA encryption
+            logging.info(f"Encrypting AES key with RSA public key: {rsa_key}")
+            cipher_rsa = PKCS1_OAEP.new(rsa_key)
 
-        # Use PKCS1_OAEP for RSA encryption
-        logging.info(f"Encrypting AES key with RSA public key: {rsa_key}")
-        cipher_rsa = PKCS1_OAEP.new(rsa_key)
+            # Encrypt the AES key using the public key
+            logging.info(f"Encrypting AES key: {aes_key.hex()}")
+            encrypted_aes_key = cipher_rsa.encrypt(aes_key)
 
-        # Encrypt the AES key using the public key
-        logging.info(f"Encrypting AES key: {aes_key.hex()}")
-        encrypted_aes_key = cipher_rsa.encrypt(aes_key)
+            return encrypted_aes_key
+        except Exception as e:
+            logging.error(f"Error during RSA encryption: {e}")
+            raise
 
-        return encrypted_aes_key
-    except Exception as e:
-        logging.error(f"Error during RSA encryption: {e}")
-        raise
+    def handle_sign_in(self, db_hand: DBHandler) -> Response:
+        logging.info(f"Sign in request received: \n{str(self)}")
+        client_id = self.client_id
 
+        if db_hand.is_registered(client_id=client_id):
+            
+            response = Response(code=ResponseCode.SIGN_IN, payload=b'')
+            return response
+
+        return Response(code=ResponseCode.SIGN_UP_ERROR, payload='Client not registered')

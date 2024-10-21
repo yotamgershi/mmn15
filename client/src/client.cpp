@@ -266,9 +266,6 @@ bool Client::sendPublicKey() {
 
             std::cout << "Public key sent. AES key received and stored successfully." << std::endl;
             return true;
-        } else if (serverResponse.getResponseCode() == 1602) {
-            std::cout << "Public key successfully acknowledged by the server." << std::endl;
-            return true;
         } else {
             std::cerr << "Error: Failed to send public key. Server returned code: " << serverResponse.getResponseCode() << std::endl;
             return false;
@@ -279,11 +276,27 @@ bool Client::sendPublicKey() {
     }
 }
 
-void hexify(const unsigned char* buffer, unsigned int length)
-{
-	std::ios::fmtflags f(std::cout.flags());
-    	for (size_t i = 0; i < length; i++)
-		std::cout << std::setfill('0') << std::setw(2) << (0xFF & buffer[i]) << (((i + 1) % 16 == 0) ? "\n" : " ");
-	std::cout << std::endl;
-	std::cout.flags(f);
+bool Client::signIn() {
+    try {
+        // Construct the request with the client ID, version, request code (SIGN_IN), and name
+        Request request(clientID_, VERSION, RequestCode::SIGN_IN, name_);
+
+        // Send the request to the server
+        send(request.getRequest());
+
+        // Receive the server's response
+        Response response = receive();
+
+        // Check if the response indicates a successful sign-in
+        if (response.getResponseCode() == ResponseCodes::SIGN_IN_SUCCESS) {
+            std::cout << "Sign-in successful!" << std::endl;
+            return true;
+        } else {
+            std::cerr << "Sign-in failed. Error: " << response.getResponseCode() << std::endl;
+            return false;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "An error occurred during sign-in: " << e.what() << std::endl;
+        return false;
+    }
 }

@@ -1,6 +1,7 @@
 import logging
 import sqlite3
 from typing import Optional, Tuple
+from datetime import datetime
 
 
 class DBHandler:
@@ -116,24 +117,28 @@ class DBHandler:
         else:
             raise ValueError(f"No AES key found for client {client_id.hex()}")
 
-    def set_rsa_key(self, client_id: bytes, rsa_key: bytes) -> bool:
-        """
-        Updates the RSA key for a given client ID in the database.
-        """
-        try:
-            cursor = self.connection.cursor()
+    def update_client_keys(self, client_id: bytes, public_key: bytes, aes_key: bytes):
+        """Update the client's public key, AES key, and LastSeen timestamp."""
+        cursor = self.connection.cursor()
+        last_seen = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        # Check if the client already exists in the database
+        cursor.execute("SELECT ID FROM clients WHERE ID = ?", (client_id,))
+        client = cursor.fetchone()
+
+        if client:
+            # Client exists, update their public key, AES key, and last seen timestamp
             cursor.execute("""
                 UPDATE clients
-                SET RSAKey = ?
-                WHERE ID = ?
-            """, (rsa_key, client_id))
-
-            self.connection.commit()
-            logging.info(f"Updated RSA key for client {client_id.hex()}")
-            return True
-        except Exception as e:
-            logging.error(f"Failed to update RSA key for client {client_id.hex()}: {e}")
-            return False
+                SET PublicKey = ?, AESKey = ?, LastSeen = ?
+                WHERE ID = ?;
+            """, (public_key, aes_key, last_seen, client_id))
+        else:
+            # Client does not exist, insert a new record
+            cursor.execute("""
+                INSERT INTO clients (ID, Name, PublicKey, LastSeen, AESKey)
+                VALUES (?, ?, ?, ?, ?);
+            """, (client_id, "ClientName", public_key, last_seen, aes_key))
 
     def close(self):
         """Close the database connection."""

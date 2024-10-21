@@ -26,6 +26,8 @@ public:
     void Client::saveAESKeyToFile(const std::string& filename = "priv.key");
     std::string Client::getPublicKey() {return public_key_;};
     void setPublicKey(const std::string& publicKey) {public_key_ = publicKey;};
+    std::string Client::getAESKey() {return std::string(aes_key_, aes_key_ + DEFAULT_KEYLENGTH);};
+    bool Client::signIn();
 
 private:
     boost::asio::io_context io_context_;

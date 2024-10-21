@@ -37,6 +37,7 @@ private:
     // Request-building functions
     void buildSignUpRequest(const std::string& name);
     void buildSendPublicKeyRequest(const std::string& name, const std::string& publicKey);
+    void buildSignInRequest(const std::string& name);
 };
 
 // asdasd
