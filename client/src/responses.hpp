@@ -24,6 +24,7 @@ public:
     uint32_t getPayloadSize() const { return payloadSize_; }
     const std::vector<uint8_t>& getPayload() const { return payload_; }
     std::string Response::getAesKey() const {return std::string(encryptedAESKey_.begin(), encryptedAESKey_.end());}
+    std::string Response::getAESKey() const;
 
     // Specific parsing functions for different request codes
     void parseSignUpSuccessResponse();
@@ -39,7 +40,6 @@ private:
     uint32_t payloadSize_;           // 4-byte payload size
     std::vector<uint8_t> payload_;   // Payload data
     std::vector<uint8_t> encryptedAESKey_; // Encrypted AES key
-
     // General function to dispatch parsing based on response code
     void parse(uint16_t responseCode);
 };

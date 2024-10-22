@@ -23,6 +23,8 @@ int main() {
         std::cerr << "Sign-in failed." << std::endl;
     }
 
+    // Step 5
+
     return 0;
 };
 

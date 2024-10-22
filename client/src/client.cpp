@@ -325,6 +325,50 @@ bool Client::signIn() {
     }
 }
 
+std::string Client::getAESKeyFromResponse(const std::vector<uint8_t>& response) {
+    // Parse the response
+    Response parsedResponse(response);
+
+    // Ensure that the response is for PUBLIC_KEY_RECEIVED (1602)
+    if (parsedResponse.getResponseCode() == PUBLIC_KEY_RECEIVED) {
+        // Get the AES key from the response (this assumes it's stored in the payload)
+        std::string encryptedAESKey = parsedResponse.getAESKey();
+        
+        // You may need to decrypt this key depending on how it was encrypted
+        // Assuming the AES key is encrypted using the public key:
+        std::string decryptedAESKey = decryptWithPrivateKey(encryptedAESKey); // Decrypt the key here
+
+        // Set the decrypted AES key to the client property
+        this->setAESKey(reinterpret_cast<const unsigned char*>(decryptedAESKey.data()));
+
+        // Print the decrypted AES key for debugging
+        std::cout << "Decrypted AES key: " << decryptedAESKey << std::endl;
+
+        // Return the decrypted key for further use
+        return decryptedAESKey;
+    } else {
+        throw std::runtime_error("Invalid response code for AES key extraction.");
+    }
+}
+
+std::string Client::decryptWithPrivateKey(const std::string& encryptedKey) {
+    // Assuming RSA decryption, with CryptoPP library
+    std::string decryptedKey;
+    
+    CryptoPP::RSA::PrivateKey privateKey;
+    // Load private key (assuming it's stored in private_key_)
+    CryptoPP::StringSource ss(this->private_key_, true, new CryptoPP::Base64Decoder);
+
+    CryptoPP::RSAES_OAEP_SHA_Decryptor decryptor(privateKey);
+    
+    CryptoPP::StringSource ss2(encryptedKey, true,
+        new CryptoPP::PK_DecryptorFilter(CryptoPP::AutoSeededRandomPool(), decryptor,
+            new CryptoPP::StringSink(decryptedKey)
+        )
+    );
+
+    return decryptedKey;
+}
 
 // Helper function to read specific lines from the file
 std::string getLineFromFile(const std::string& filePath, int lineNumber) {

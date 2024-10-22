@@ -88,3 +88,20 @@ void Response::parseSignInSuceessResponse() {
 void Response::parseSignInFailureResponse() {
     std::cout << "Sign-in failed! Invalid credentials." << std::endl;
 }
+
+std::string Response::getAESKey() const {
+    // Ensure response code is one of the expected codes for AES key extraction
+    if (responseCode_ == PUBLIC_KEY_RECEIVED || responseCode_ == SIGN_IN_SUCCESS) {
+        // The payload structure: [Client ID (16 bytes)] [AES key (variable length)]
+        size_t clientIdSize = 16; // As per the table
+        size_t aesKeySize = payload_.size() - clientIdSize; // Remaining part is the AES key
+
+        // Extract the AES key portion from the payload
+        std::vector<uint8_t> aesKey(payload_.begin() + clientIdSize, payload_.end());
+
+        // Convert the AES key to std::string and return it
+        return std::string(aesKey.begin(), aesKey.end());
+    } else {
+        throw std::runtime_error("Response code does not contain an AES key.");
+    }
+}

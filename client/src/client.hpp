@@ -8,6 +8,7 @@
 #include <cryptopp/rsa.h>
 #include <cstring>
 #include "Base64Wrapper.h"
+#include "requests.hpp"
 
 const int DEFAULT_KEYLENGTH = 32;
 
@@ -40,10 +41,10 @@ private:
     std::string private_key_;
     std::string public_key_;
     unsigned char aes_key_[DEFAULT_KEYLENGTH];
+    std::string Client::decryptWithPrivateKey(const std::string& encryptedKey);
+    std::string getAESKeyFromResponse(const std::vector<uint8_t>& response);
 };
-
 std::tuple<std::string, std::string, std::string, std::string> readTransferInfo(const std::string& filename);
-void savePrivateKeyToFile(const CryptoPP::RSA::PrivateKey& privateKey, const std::string& filename);
 std::string getLineFromFile(const std::string& filePath, int lineNumber);
 std::string getNameFromFile(); //() {return getLineFromFile("me.info", 0);}
 std::string getClientIDFromFile(); // () {return getLineFromFile("me.info", 1);}
