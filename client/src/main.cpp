@@ -23,12 +23,12 @@ int main() {
         std::cerr << "Sign-in failed." << std::endl;
     }
 
-    
+    return 0;
 };
 
-int main_sign_up() {
+int main1() {
     // For debugging porpoises - increment the second row number in "transfer.info"
-    incrementSecondRowNumber("transfer.info");
+    // incrementSecondRowNumber("transfer.info");
 
     // Step 1: Read the transfer info from the file (assuming "transfer.info" exists)
     auto [host, port, clientName, filePath] = readTransferInfo("transfer.info"); 

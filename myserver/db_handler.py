@@ -53,14 +53,19 @@ class DBHandler:
         logging.info(f"Checking if client is registered: {client_name}")
 
         cursor = self.connection.cursor()
-        cursor.execute('SELECT ClientID FROM clients WHERE Name = ?', (client_name,))
+        cursor.execute('SELECT ID FROM clients WHERE Name = ?', (client_name,))
 
         if (row := cursor.fetchone()) is not None:
-            client_id = row[0]  # Assuming the first column is ClientID
-            logging.info(f"Client is registered. ClientID: {client_id}")
+            client_id = row[0]
+            logging.info(f"Client is registered. ID: {client_id.hex()}")
             return client_id
         logging.info(f"Client not found: {client_name}")
         return None
+
+    def get_from_clients(self, id: bytes, name: str, public_key: bytes, last_seen: str, aes_key: bytes) -> Optional[Tuple]:
+        """Fetch client's attributes by ID."""
+        result = None
+        cursor = self.connection.cursor()
 
     def get_client(self, client_id: bytes) -> Optional[Tuple]:
         """Fetch a client by ID."""

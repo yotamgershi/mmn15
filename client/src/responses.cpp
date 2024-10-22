@@ -31,7 +31,13 @@ void Response::parse(uint16_t responseCode) {
             parseSignUpFailureResponse();
             break;
         case PUBLIC_KEY_RECEIVED:
-            ParsePublicKeyReceivedResponse();
+            parsePublicKeyReceivedResponse();
+            break;
+        case SIGN_IN_SUCCESS:
+            parseSignInSuceessResponse();
+            break;
+        case SIGN_IN_FAILURE:
+            parseSignInFailureResponse();
             break;
         default:
             std::cerr << "Unknown response code: " << responseCode << std::endl;
@@ -58,20 +64,27 @@ void Response::parseSignUpFailureResponse() {
     std::cerr << "Sign-up failed! Name is already taken." << std::endl;
 }
 
-void Response::ParsePublicKeyReceivedResponse() {
-    // Check that the payload contains at least the AES key
-    if (payload_.size() > 16) {
-        // Extract the Encrypted AES key (remaining bytes after Client ID)
-        encryptedAESKey_ = std::vector<uint8_t>(payload_.begin() + 16, payload_.end());
-
-        // Output extracted values for debugging
-        std::cout << "Public key received!" << std::endl;
-        std::cout << "Encrypted AES Key (hex): ";
-        for (const auto& byte : encryptedAESKey_) {
-            printf("%02x", byte);  // Print AES key as hex
-        }
-        std::cout << std::endl;
-    } else {
+void Response::parsePublicKeyReceivedResponse() {
+    if (payload_.size() < 16) {
         std::cerr << "Error: Payload too short to contain AES key" << std::endl;
     }
+
+    // Extract the Encrypted AES key (remaining bytes after Client ID)
+    encryptedAESKey_ = std::vector<uint8_t>(payload_.begin() + 16, payload_.end());
+
+    // Output extracted values for debugging
+    std::cout << "Public key received!" << std::endl;
+    std::cout << "Encrypted AES Key (hex): ";
+    for (const auto& byte : encryptedAESKey_) {
+        printf("%02x", byte);  // Print AES key as hex
+    }
+    std::cout << std::endl;
+}
+
+void Response::parseSignInSuceessResponse() {
+    std::cout << "Sign-in successful!" << std::endl;
+}
+
+void Response::parseSignInFailureResponse() {
+    std::cout << "Sign-in failed! Invalid credentials." << std::endl;
 }

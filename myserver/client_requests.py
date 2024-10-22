@@ -6,6 +6,9 @@ from client_responses import Response, ResponseCode
 from db_handler import DBHandler
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
+from Crypto import Random
+
+AES_KEY_SIZE = 16
 
 
 class RequestCode:
@@ -90,8 +93,8 @@ class Request:
 
         logging.info(f"Extracted name: {name}, public key: {public_key.hex()}")
 
-        # Retrieve the AES key for the client from the database
-        aes_key = db_hand.get_aes_key(client_id)
+        # Generate a new AES key for the client
+        aes_key = Random.get_random_bytes(AES_KEY_SIZE)
 
         # Encrypt the AES key with the client's public RSA key
         encrypted_aes_key = Request.encrypt_aes_key_with_rsa(aes_key, public_key)
@@ -130,13 +133,37 @@ class Request:
 
     def handle_sign_in(self, db_hand: DBHandler) -> Response:
         logging.info(f"Sign in request received: \n{str(self)}")
-        client_id = self.client_id
-        name = self.payload.decode('utf-8').replace('\0', '').strip()
+        client_name = self.payload.decode('utf-8').replace('\0', '').strip()
+        print(f"{client_name=}")
 
-        if (client_id_from_db := db_hand.is_registered(name=name)) is not None:
-            if client_id != client_id_from_db:
-                logging.info(f"Client ID mismatch: {client_id} != {client_id_from_db}")
-                return Response(code=ResponseCode.SIGN_IN_FAILURE, payload=b'')
-            db_hand.update_last_seen(client_id, datetime.now())
-            logging.info(f"Client {name} signed in successfully.")
-            return Response(code=ResponseCode.SIGN_IN_SUCCESS, payload=b'')
+        # Check if the client is registered
+        if not (client_id_from_db := db_hand.is_registered(client_name=client_name)):
+            logging.info(f"Client {client_name} not found.")
+            client_id = uuid4().bytes
+            return Response(code=ResponseCode.SIGN_IN_FAILURE, payload=client_id)
+
+        # Check if the client ID matches the one in the database
+        elif self.client_id != client_id_from_db:
+            logging.info(f"Client ID mismatch: {self.client_id.hex()=} != {client_id_from_db.hex()=}, generated new ID.")
+            client_id = uuid4().bytes
+            return Response(code=ResponseCode.SIGN_IN_FAILURE, payload=client_id)
+
+        # Update the last seen timestamp for the client
+        db_hand.update_last_seen(client_id, datetime.now())
+
+        logging.info(f"Client {client_name} signed in successfully.")
+
+        # Retrieve the client's public key from the database
+        public_key = db_hand.get_public_key(client_id)
+
+        # Generate a new AES key for the client
+        aes_key = Random.get_random_bytes(AES_KEY_SIZE)
+
+        # Encrypt the AES key with the client's public RSA key
+        encrypted_aes_key = Request.encrypt_aes_key_with_rsa(aes_key, public_key)
+
+        logging.info(f"Generated new AES key: {aes_key.hex()}")
+
+        payload = client_id + encrypted_aes_key
+
+        return Response(code=ResponseCode.SIGN_IN_SUCCESS, payload=payload)

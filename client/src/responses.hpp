@@ -10,6 +10,7 @@ enum ResponseCodes {
     SIGN_UP_FAILURE = 1601,
     PUBLIC_KEY_RECEIVED = 1602,
     SIGN_IN_SUCCESS = 1605,
+    SIGN_IN_FAILURE = 1606
 };
 
 class Response {
@@ -28,7 +29,9 @@ public:
     void parseSignUpSuccessResponse();
     void parseSignUpFailureResponse();
     void parseSignInResponse();
-    void ParsePublicKeyReceivedResponse();
+    void parsePublicKeyReceivedResponse();
+    void parseSignInSuceessResponse();
+    void parseSignInFailureResponse();
 
 private:
     uint8_t version_;               // 1-byte version
