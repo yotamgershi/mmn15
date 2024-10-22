@@ -353,9 +353,27 @@ std::string getNameFromFile() {
     return getLineFromFile("me.info", 0);  // First line for the name
 }
 
+// Modify this function to ensure that the full client ID is read and sent as bytes
 std::string getClientIDFromFile() {
-    return getLineFromFile("me.info", 1);  // Second line for the client ID
+    std::string clientIDHex = getLineFromFile("me.info", 1);  // Read client_id from file as hex
+
+    // Convert the hex string to raw bytes (16 bytes)
+    std::vector<uint8_t> clientIDBytes;
+    for (size_t i = 0; i < clientIDHex.length(); i += 2) {
+        std::string byteString = clientIDHex.substr(i, 2);
+        uint8_t byte = (uint8_t) strtol(byteString.c_str(), nullptr, 16);
+        clientIDBytes.push_back(byte);
+    }
+
+    // Ensure the result is 16 bytes
+    if (clientIDBytes.size() != 16) {
+        std::cerr << "Error: Client ID is not 16 bytes!" << std::endl;
+        return "";
+    }
+
+    return std::string(clientIDBytes.begin(), clientIDBytes.end());  // Return as a binary string
 }
+
 
 std::string getAesFromFile() {
     return getLineFromFile("me.info", 2);  // Third line for the AES key

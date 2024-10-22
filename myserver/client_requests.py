@@ -28,6 +28,7 @@ class Request:
         self.header = Request.parse_header(data)
 
         self.client_id = self.header[0]
+        logging.info(f"Client ID: {self.client_id.hex()}")
         self.version = self.header[1]
         self.code = self.header[2]
         self.payload_size = self.header[3]
@@ -66,11 +67,12 @@ class Request:
         except UnicodeDecodeError:
             clean_payload = self.payload.hex()  # Display binary data as hex
 
-        clean_client_id = self.client_id.decode('utf-8').replace('\0', '')
+        # Always show the client ID as hex (since it's binary data)
+        clean_client_id = self.client_id.hex()  # Display binary data as hex
         return f"Request(client_id={clean_client_id}, version={self.version}, code={self.code}, payload_size={self.payload_size}, payload={clean_payload})"
 
     def handle_sign_up(self, db_hand: DBHandler) -> Response:
-        logging.info(f"Sign up request received: \n{str(self)}")
+        # logging.info(f"Sign up request received: \n{str(self)}")
         client_name = self.payload.decode('utf-8').replace('\0', '').strip()
 
         if not db_hand.is_registered(client_name=client_name):
@@ -136,7 +138,7 @@ class Request:
         client_name = self.payload.decode('utf-8').replace('\0', '').strip()
         print(f"{client_name=}")
 
-        # Check if the client is registered
+        # Check if the client is not registered
         if not (client_id_from_db := db_hand.is_registered(client_name=client_name)):
             logging.info(f"Client {client_name} not found.")
             client_id = uuid4().bytes
@@ -149,7 +151,7 @@ class Request:
             return Response(code=ResponseCode.SIGN_IN_FAILURE, payload=client_id)
 
         # Update the last seen timestamp for the client
-        db_hand.update_last_seen(client_id, datetime.now())
+        db_hand.update_last_seen(self.client_id, datetime.now())
 
         logging.info(f"Client {client_name} signed in successfully.")
 
@@ -164,6 +166,6 @@ class Request:
 
         logging.info(f"Generated new AES key: {aes_key.hex()}")
 
-        payload = client_id + encrypted_aes_key
+        payload = self.client_id + encrypted_aes_key
 
         return Response(code=ResponseCode.SIGN_IN_SUCCESS, payload=payload)
