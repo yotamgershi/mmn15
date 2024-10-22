@@ -5,7 +5,7 @@
 Response::Response(const std::vector<uint8_t>& response) {
     if (response.size() < 7) {  // At least 7 bytes are required for the header
         throw std::runtime_error("Response too short to contain a valid header");
-    }
+    }   
 
     // Parse the header
     version_ = response[0];
@@ -24,14 +24,20 @@ Response::Response(const std::vector<uint8_t>& response) {
 // Function to dispatch the parsing based on the response code
 void Response::parse(uint16_t responseCode) {
     switch (responseCode) {
-        case 1600:
+        case SIGN_UP_SUCCESS:
             parseSignUpSuccessResponse();
             break;
-        case 1601:
+        case SIGN_UP_FAILURE:
             parseSignUpFailureResponse();
             break;
-        case 1602:
-            parseSendPublicKeyResponse();
+        case PUBLIC_KEY_RECEIVED:
+            parsePublicKeyReceivedResponse();
+            break;
+        case SIGN_IN_SUCCESS:
+            parseSignInSuceessResponse();
+            break;
+        case SIGN_IN_FAILURE:
+            parseSignInFailureResponse();
             break;
         default:
             std::cerr << "Unknown response code: " << responseCode << std::endl;
@@ -49,11 +55,6 @@ void Response::parseSignUpSuccessResponse() {
     }
 }
 
-// Parse the sendPublicKey response (e.g., acknowledgment)
-void Response::parseSendPublicKeyResponse() {
-    std::cout << "Public key successfully acknowledged by the server." << std::endl;
-}
-
 void Response::parseSignInResponse() {
     std::cout << "Sign-in failed! Invalid credentials." << std::endl;
 }
@@ -61,4 +62,29 @@ void Response::parseSignInResponse() {
 void Response::parseSignUpFailureResponse() {
     // Implementation logic for handling sign-up failure response
     std::cerr << "Sign-up failed! Name is already taken." << std::endl;
+}
+
+void Response::parsePublicKeyReceivedResponse() {
+    if (payload_.size() < 16) {
+        std::cerr << "Error: Payload too short to contain AES key" << std::endl;
+    }
+
+    // Extract the Encrypted AES key (remaining bytes after Client ID)
+    encryptedAESKey_ = std::vector<uint8_t>(payload_.begin() + 16, payload_.end());
+
+    // Output extracted values for debugging
+    std::cout << "Public key received!" << std::endl;
+    std::cout << "Encrypted AES Key (hex): ";
+    for (const auto& byte : encryptedAESKey_) {
+        printf("%02x", byte);  // Print AES key as hex
+    }
+    std::cout << std::endl;
+}
+
+void Response::parseSignInSuceessResponse() {
+    std::cout << "Sign-in successful!" << std::endl;
+}
+
+void Response::parseSignInFailureResponse() {
+    std::cout << "Sign-in failed! Invalid credentials." << std::endl;
 }

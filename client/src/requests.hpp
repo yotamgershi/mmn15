@@ -3,7 +3,8 @@
 
 #include <vector>
 #include <string>
-#include <stdexcept>  // For std::runtime_error
+#include <stdexcept>
+#include <map>
 
 enum RequestCode {
     SIGN_UP = 825,
@@ -37,8 +38,7 @@ private:
     // Request-building functions
     void buildSignUpRequest(const std::string& name);
     void buildSendPublicKeyRequest(const std::string& name, const std::string& publicKey);
+    void buildSignInRequest(std::string name);
 };
-
-
 
 #endif // REQUEST_HPP

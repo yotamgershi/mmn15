@@ -26,6 +26,8 @@ public:
     void Client::saveAESKeyToFile(const std::string& filename = "priv.key");
     std::string Client::getPublicKey() {return public_key_;};
     void setPublicKey(const std::string& publicKey) {public_key_ = publicKey;};
+    std::string Client::getAESKey() {return std::string(aes_key_, aes_key_ + DEFAULT_KEYLENGTH);};
+    bool Client::signIn();
 
 private:
     boost::asio::io_context io_context_;
@@ -42,5 +44,9 @@ private:
 
 std::tuple<std::string, std::string, std::string, std::string> readTransferInfo(const std::string& filename);
 void savePrivateKeyToFile(const CryptoPP::RSA::PrivateKey& privateKey, const std::string& filename);
+std::string getLineFromFile(const std::string& filePath, int lineNumber);
+std::string getNameFromFile(); //() {return getLineFromFile("me.info", 0);}
+std::string getClientIDFromFile(); // () {return getLineFromFile("me.info", 1);}
+std::string getAesFromFile(); // {return getLineFromFile("me.info", 2);}
 
 #endif // CLIENT_HPP

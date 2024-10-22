@@ -111,7 +111,7 @@ std::pair<bool, std::string> Client::signUp() {
     // Check if the client ID already exists to avoid duplicate sign-up
     if (fileExists("me.info")) {
         std::cerr << "Error: Client ID already exists. Please delete 'me.info' to sign up again." << std::endl;
-        return {false, ""};
+        // return {false, ""};
     }
 
     // Create the sign-up request (constructor will handle header and payload)
@@ -235,8 +235,6 @@ void Client::saveAESKeyToFile(const std::string& filename) {
     std::cout << "AES key saved to " << filename << std::endl;
 }
 
-
-
 bool Client::sendPublicKey() {
     if (public_key_.empty()) {
         std::cerr << "Error: Public key not set. Please generate RSA keys first." << std::endl;
@@ -268,9 +266,6 @@ bool Client::sendPublicKey() {
 
             std::cout << "Public key sent. AES key received and stored successfully." << std::endl;
             return true;
-        } else if (serverResponse.getResponseCode() == 1602) {
-            std::cout << "Public key successfully acknowledged by the server." << std::endl;
-            return true;
         } else {
             std::cerr << "Error: Failed to send public key. Server returned code: " << serverResponse.getResponseCode() << std::endl;
             return false;
@@ -281,11 +276,105 @@ bool Client::sendPublicKey() {
     }
 }
 
-void hexify(const unsigned char* buffer, unsigned int length)
-{
-	std::ios::fmtflags f(std::cout.flags());
-    	for (size_t i = 0; i < length; i++)
-		std::cout << std::setfill('0') << std::setw(2) << (0xFF & buffer[i]) << (((i + 1) % 16 == 0) ? "\n" : " ");
-	std::cout << std::endl;
-	std::cout.flags(f);
+bool Client::signIn() {
+    try {
+        // Check if me.info exists
+        std::ifstream file("me.info");
+        std::string nameToUse = name_;
+        std::string clientIDToUse = clientID_;
+
+        if (file.good()) {  // If the file exists
+            std::cout << "me.info exists, loading name and client ID from file..." << std::endl;
+
+            // Retrieve name and client ID from the file
+            std::string fileName = getNameFromFile();
+            std::string fileClientID = getClientIDFromFile();
+
+            // If data from the file is valid, update the name and clientID variables
+            if (!fileName.empty()) {
+                nameToUse = fileName;
+            }
+
+            if (!fileClientID.empty()) {
+                clientIDToUse = fileClientID;
+            }
+        } else {
+            std::cout << "me.info does not exist, using default client ID and name." << std::endl;
+        }
+
+        // Construct the request with the updated or default client ID, version, request code (SIGN_IN), and name
+        Request request(clientIDToUse, VERSION, RequestCode::SIGN_IN, nameToUse);
+
+        // Send the request to the server
+        send(request.getRequest());
+
+        // Receive the server's response
+        Response response = receive();
+
+        // Check if the response indicates a successful sign-in
+        if (response.getResponseCode() == ResponseCodes::SIGN_IN_SUCCESS) {
+            std::cout << "Sign-in successful!" << std::endl;
+            return true;
+        } else {
+            std::cerr << "Sign-in failed. Error: " << response.getResponseCode() << std::endl;
+            return false;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "An error occurred during sign-in: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+
+// Helper function to read specific lines from the file
+std::string getLineFromFile(const std::string& filePath, int lineNumber) {
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open " << filePath << std::endl;
+        return "";
+    }
+
+    std::string line;
+    int currentLine = 0;
+
+    // Read up to the specified line number
+    while (std::getline(file, line)) {
+        if (currentLine == lineNumber) {
+            return line;
+        }
+        currentLine++;
+    }
+
+    std::cerr << "Error: Line " << lineNumber << " not found in " << filePath << std::endl;
+    return "";
+}
+
+std::string getNameFromFile() {
+    return getLineFromFile("me.info", 0);  // First line for the name
+}
+
+// Modify this function to ensure that the full client ID is read and sent as bytes
+std::string getClientIDFromFile() {
+    std::string clientIDHex = getLineFromFile("me.info", 1);  // Read client_id from file as hex
+
+    // Convert the hex string to raw bytes (16 bytes)
+    std::vector<uint8_t> clientIDBytes;
+    for (size_t i = 0; i < clientIDHex.length(); i += 2) {
+        std::string byteString = clientIDHex.substr(i, 2);
+        uint8_t byte = (uint8_t) strtol(byteString.c_str(), nullptr, 16);
+        clientIDBytes.push_back(byte);
+    }
+
+    // Ensure the result is 16 bytes
+    if (clientIDBytes.size() != 16) {
+        std::cerr << "Error: Client ID is not 16 bytes!" << std::endl;
+        return "";
+    }
+
+    return std::string(clientIDBytes.begin(), clientIDBytes.end());  // Return as a binary string
+}
+
+
+std::string getAesFromFile() {
+    return getLineFromFile("me.info", 2);  // Third line for the AES key
 }
