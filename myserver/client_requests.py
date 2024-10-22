@@ -86,14 +86,16 @@ class Request:
     def __bytes__(self) -> bytes:
         return b''.join(self.header) + self.payload
 
-    def handle_send_public_key(self, db_hand: DBHandler) -> Response:
-        logging.info(f"Send public key request received: client_id={self.client_id}, payload={self.payload.hex()}")
-
-        client_id = self.client_id  # Keep as binary
-        name = self.payload[:255].rstrip(b'\x00').decode('ascii')
-        public_key = self.payload[255:415]  # 160 bytes for the public key
-
-        logging.info(f"Extracted name: {name}, public key: {public_key.hex()}")
+    # Helper function to handle key generation, encryption, and logging
+    @staticmethod
+    def handle_keys(client_id: bytes, db_hand: DBHandler) -> Tuple[bytes, bytes]:
+        """
+        Generate AES key, retrieve public key, and encrypt AES key with the public RSA key.
+        Returns the client_id and the encrypted AES key.
+        """
+        # Retrieve the client's public key from the database
+        public_key = db_hand.get_client(client_id)[2]  # Assuming the public key is in the 3rd column
+        logging.info(f"Retrieved public key: {public_key.hex()}")
 
         # Generate a new AES key for the client
         aes_key = Random.get_random_bytes(AES_KEY_SIZE)
@@ -101,13 +103,31 @@ class Request:
         # Encrypt the AES key with the client's public RSA key
         encrypted_aes_key = Request.encrypt_aes_key_with_rsa(aes_key, public_key)
 
-        # Construct the payload: 16-byte client ID + encrypted AES key
+        logging.info(f"Generated new AES key: {aes_key.hex()}")
+        return client_id, encrypted_aes_key
+
+    def handle_send_public_key(self, db_hand: DBHandler) -> Response:
+        logging.info(f"Send public key request received: client_id={self.client_id.hex()}, payload={self.payload.hex()}")
+
+        client_id = self.client_id  # Keep as binary
+        name = self.payload[:255].rstrip(b'\x00').decode('ascii')
+        public_key = self.payload[255:415]  # 160 bytes for the public key
+
+        logging.info(f"Extracted name: {name}, public key: {public_key.hex()}")
+
+        # Update the client's public key in the database
+        db_hand.set_client_public_key(client_id=client_id, public_key=public_key)
+
+        # Use the helper function to handle AES generation and encryption
+        client_id, encrypted_aes_key = Request.handle_keys(client_id, db_hand)
+
+        # Set the AES key in the database after encryption
+        db_hand.set_client_aes_key(client_id, encrypted_aes_key)
+
+        # Construct the response payload: 16-byte client ID + encrypted AES key
         response_payload = client_id + encrypted_aes_key
 
-        # Update the client's keys in the database
-        db_hand.update_client_keys(client_id=client_id, public_key=public_key, aes_key=aes_key)
-
-        # Return a response with the encrypted AES key included in the payload
+        # Return the response with the encrypted AES key included in the payload
         return Response(code=ResponseCode.RECEIVE_PUBLIC_KEY, payload=response_payload)
 
     @staticmethod
@@ -121,11 +141,9 @@ class Request:
             rsa_key = RSA.import_key(public_key)
 
             # Use PKCS1_OAEP for RSA encryption
-            logging.info(f"Encrypting AES key with RSA public key: {rsa_key}")
             cipher_rsa = PKCS1_OAEP.new(rsa_key)
 
             # Encrypt the AES key using the public key
-            logging.info(f"Encrypting AES key: {aes_key.hex()}")
             encrypted_aes_key = cipher_rsa.encrypt(aes_key)
 
             return encrypted_aes_key
@@ -136,36 +154,33 @@ class Request:
     def handle_sign_in(self, db_hand: DBHandler) -> Response:
         logging.info(f"Sign in request received: \n{str(self)}")
         client_name = self.payload.decode('utf-8').replace('\0', '').strip()
-        print(f"{client_name=}")
+        logging.info(f"Client name: {client_name}")
 
-        # Check if the client is not registered
-        if not (client_id_from_db := db_hand.is_registered(client_name=client_name)):
+        # Check if the client is registered
+        client_id_from_db = db_hand.is_registered(client_name=client_name)
+        if client_id_from_db is None:
             logging.info(f"Client {client_name} not found.")
-            client_id = uuid4().bytes
+            client_id = uuid4().bytes  # Generate a new client ID if not found
             return Response(code=ResponseCode.SIGN_IN_FAILURE, payload=client_id)
 
+        # Use the client ID from the database
+        client_id = self.client_id  # This is from the request
+
         # Check if the client ID matches the one in the database
-        elif self.client_id != client_id_from_db:
-            logging.info(f"Client ID mismatch: {self.client_id.hex()=} != {client_id_from_db.hex()=}, generated new ID.")
-            client_id = uuid4().bytes
+        if client_id != client_id_from_db:
+            logging.info(f"Client ID mismatch: {client_id.hex()} != {client_id_from_db.hex()}, generating new ID.")
+            client_id = uuid4().bytes  # Generate a new ID in case of mismatch
             return Response(code=ResponseCode.SIGN_IN_FAILURE, payload=client_id)
 
         # Update the last seen timestamp for the client
-        db_hand.update_last_seen(self.client_id, datetime.now())
+        db_hand.update_last_seen(client_id, datetime.now())
 
         logging.info(f"Client {client_name} signed in successfully.")
 
-        # Retrieve the client's public key from the database
-        public_key = db_hand.get_public_key(client_id)
+        # Use the helper function to handle AES generation and encryption
+        client_id, encrypted_aes_key = Request.handle_keys(client_id, db_hand)
 
-        # Generate a new AES key for the client
-        aes_key = Random.get_random_bytes(AES_KEY_SIZE)
-
-        # Encrypt the AES key with the client's public RSA key
-        encrypted_aes_key = Request.encrypt_aes_key_with_rsa(aes_key, public_key)
-
-        logging.info(f"Generated new AES key: {aes_key.hex()}")
-
-        payload = self.client_id + encrypted_aes_key
+        # Construct the response payload
+        payload = client_id + encrypted_aes_key
 
         return Response(code=ResponseCode.SIGN_IN_SUCCESS, payload=payload)
