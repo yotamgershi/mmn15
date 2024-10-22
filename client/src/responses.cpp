@@ -90,14 +90,33 @@ void Response::parseSignInFailureResponse() {
 }
 
 std::string Response::getAESKey() const {
-    // Ensure response code is one of the expected codes for AES key extraction
-    if (responseCode_ == PUBLIC_KEY_RECEIVED || responseCode_ == SIGN_IN_SUCCESS) {
-        // The payload structure: [Client ID (16 bytes)] [AES key (variable length)]
-        size_t clientIdSize = 16; // As per the table
-        size_t aesKeySize = payload_.size() - clientIdSize; // Remaining part is the AES key
+    std::cout << "Response code: " << responseCode_ << std::endl;
 
-        // Extract the AES key portion from the payload
+    if (responseCode_ == PUBLIC_KEY_RECEIVED || responseCode_ == SIGN_IN_SUCCESS) {
+        size_t clientIdSize = 16;  // Client ID is 16 bytes
+        
+        if (payload_.size() <= clientIdSize) {
+            throw std::runtime_error("Payload size is too small for AES key extraction.");
+        }
+
+        size_t aesKeySize = payload_.size() - clientIdSize;
+
+        // Extract the Client ID and AES key
+        std::vector<uint8_t> clientId(payload_.begin(), payload_.begin() + clientIdSize);
         std::vector<uint8_t> aesKey(payload_.begin() + clientIdSize, payload_.end());
+
+        // Log the Client ID and AES key for debugging
+        std::cout << "Client ID: ";
+        for (const auto& byte : clientId) {
+            std::cout << std::hex << static_cast<int>(byte) << " ";
+        }
+        std::cout << std::endl;
+
+        std::cout << "AES Key: ";
+        for (const auto& byte : aesKey) {
+            std::cout << std::hex << static_cast<int>(byte) << " ";
+        }
+        std::cout << std::endl;
 
         // Convert the AES key to std::string and return it
         return std::string(aesKey.begin(), aesKey.end());
@@ -105,3 +124,4 @@ std::string Response::getAESKey() const {
         throw std::runtime_error("Response code does not contain an AES key.");
     }
 }
+

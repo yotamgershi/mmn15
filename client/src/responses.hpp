@@ -3,7 +3,8 @@
 
 #include <vector>
 #include <string>
-#include <stdexcept>  // For std::runtime_error
+#include <stdexcept>
+#include <iostream>
 
 enum ResponseCodes {
     SIGN_UP_SUCCESS = 1600,
@@ -22,8 +23,8 @@ public:
     uint8_t getVersion() const { return version_; }
     uint16_t getResponseCode() const { return responseCode_; }
     uint32_t getPayloadSize() const { return payloadSize_; }
-    const std::vector<uint8_t>& getPayload() const { return payload_; }
-    std::string Response::getAesKey() const {return std::string(encryptedAESKey_.begin(), encryptedAESKey_.end());}
+    const std::vector<uint8_t>& getPayload() const {return payload_; }
+    std::string Response::getAesKey() const {return std::string(encryptedAESKey_.begin(), encryptedAESKey_.end()); }
     std::string Response::getAESKey() const;
 
     // Specific parsing functions for different request codes

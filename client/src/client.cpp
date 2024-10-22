@@ -314,6 +314,10 @@ bool Client::signIn() {
         // Check if the response indicates a successful sign-in
         if (response.getResponseCode() == ResponseCodes::SIGN_IN_SUCCESS) {
             std::cout << "Sign-in successful!" << std::endl;
+            // Get the AES key from the response and set it in the client
+            std::string aesKey = response.getAESKey();
+            setAESKey(reinterpret_cast<const unsigned char*>(aesKey.data()));
+            std::cout << "set AES key: " << this->aes_key_ << std::endl;
             return true;
         } else {
             std::cerr << "Sign-in failed. Error: " << response.getResponseCode() << std::endl;
@@ -322,32 +326,6 @@ bool Client::signIn() {
     } catch (const std::exception& e) {
         std::cerr << "An error occurred during sign-in: " << e.what() << std::endl;
         return false;
-    }
-}
-
-std::string Client::getAESKeyFromResponse(const std::vector<uint8_t>& response) {
-    // Parse the response
-    Response parsedResponse(response);
-
-    // Ensure that the response is for PUBLIC_KEY_RECEIVED (1602)
-    if (parsedResponse.getResponseCode() == PUBLIC_KEY_RECEIVED) {
-        // Get the AES key from the response (this assumes it's stored in the payload)
-        std::string encryptedAESKey = parsedResponse.getAESKey();
-        
-        // You may need to decrypt this key depending on how it was encrypted
-        // Assuming the AES key is encrypted using the public key:
-        std::string decryptedAESKey = decryptWithPrivateKey(encryptedAESKey); // Decrypt the key here
-
-        // Set the decrypted AES key to the client property
-        this->setAESKey(reinterpret_cast<const unsigned char*>(decryptedAESKey.data()));
-
-        // Print the decrypted AES key for debugging
-        std::cout << "Decrypted AES key: " << decryptedAESKey << std::endl;
-
-        // Return the decrypted key for further use
-        return decryptedAESKey;
-    } else {
-        throw std::runtime_error("Invalid response code for AES key extraction.");
     }
 }
 
