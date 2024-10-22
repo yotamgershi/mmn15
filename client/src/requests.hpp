@@ -38,10 +38,7 @@ private:
     // Request-building functions
     void buildSignUpRequest(const std::string& name);
     void buildSendPublicKeyRequest(const std::string& name, const std::string& publicKey);
-    void buildSignInRequest();
+    void buildSignInRequest(std::string name);
 };
-
-std::map<std::string, std::string> readFromMeInfo();
-// asdasd
 
 #endif // REQUEST_HPP

@@ -44,5 +44,9 @@ private:
 
 std::tuple<std::string, std::string, std::string, std::string> readTransferInfo(const std::string& filename);
 void savePrivateKeyToFile(const CryptoPP::RSA::PrivateKey& privateKey, const std::string& filename);
+std::string getLineFromFile(const std::string& filePath, int lineNumber);
+std::string getNameFromFile(); //() {return getLineFromFile("me.info", 0);}
+std::string getClientIDFromFile(); // () {return getLineFromFile("me.info", 1);}
+std::string getAesFromFile(); // {return getLineFromFile("me.info", 2);}
 
 #endif // CLIENT_HPP

@@ -278,8 +278,32 @@ bool Client::sendPublicKey() {
 
 bool Client::signIn() {
     try {
-        // Construct the request with the client ID, version, request code (SIGN_IN), and name
-        Request request(clientID_, VERSION, RequestCode::SIGN_IN, name_);
+        // Check if me.info exists
+        std::ifstream file("me.info");
+        std::string nameToUse = name_;
+        std::string clientIDToUse = clientID_;
+
+        if (file.good()) {  // If the file exists
+            std::cout << "me.info exists, loading name and client ID from file..." << std::endl;
+
+            // Retrieve name and client ID from the file
+            std::string fileName = getNameFromFile();
+            std::string fileClientID = getClientIDFromFile();
+
+            // If data from the file is valid, update the name and clientID variables
+            if (!fileName.empty()) {
+                nameToUse = fileName;
+            }
+
+            if (!fileClientID.empty()) {
+                clientIDToUse = fileClientID;
+            }
+        } else {
+            std::cout << "me.info does not exist, using default client ID and name." << std::endl;
+        }
+
+        // Construct the request with the updated or default client ID, version, request code (SIGN_IN), and name
+        Request request(clientIDToUse, VERSION, RequestCode::SIGN_IN, nameToUse);
 
         // Send the request to the server
         send(request.getRequest());
@@ -299,4 +323,40 @@ bool Client::signIn() {
         std::cerr << "An error occurred during sign-in: " << e.what() << std::endl;
         return false;
     }
+}
+
+
+// Helper function to read specific lines from the file
+std::string getLineFromFile(const std::string& filePath, int lineNumber) {
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open " << filePath << std::endl;
+        return "";
+    }
+
+    std::string line;
+    int currentLine = 0;
+
+    // Read up to the specified line number
+    while (std::getline(file, line)) {
+        if (currentLine == lineNumber) {
+            return line;
+        }
+        currentLine++;
+    }
+
+    std::cerr << "Error: Line " << lineNumber << " not found in " << filePath << std::endl;
+    return "";
+}
+
+std::string getNameFromFile() {
+    return getLineFromFile("me.info", 0);  // First line for the name
+}
+
+std::string getClientIDFromFile() {
+    return getLineFromFile("me.info", 1);  // Second line for the client ID
+}
+
+std::string getAesFromFile() {
+    return getLineFromFile("me.info", 2);  // Third line for the AES key
 }
