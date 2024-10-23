@@ -46,6 +46,9 @@ void Request::buildRequest(uint16_t requestCode, const std::string& name, const 
         case RequestCode::SIGN_IN:
             buildSignInRequest(name);
             break;
+        case RequestCode::SEND_FILE:
+            buildSendPacketRequest(name);
+            break;
         default:
             throw std::runtime_error("Unknown request code");
     }
@@ -92,6 +95,28 @@ void Request::buildSendPublicKeyRequest(const std::string& name, const std::stri
 
 void Request::buildSignInRequest(std::string name) {
 
+    // Clear the current payload
+    payload_.clear();
+
+    // Build the name field (255 bytes, null-terminated)
+    std::vector<uint8_t> nameField(255, 0);  // Initialize with 255 null bytes
+    std::memcpy(nameField.data(), name.c_str(), std::min<size_t>(name.length(), 254));  // Copy name (up to 254 chars)
+    
+    // Insert the name field into the payload
+    payload_.insert(payload_.end(), nameField.begin(), nameField.end());
+
+    // Update the payload size in the request header (assuming payload size starts at byte 19)
+    payloadSize_ = static_cast<uint32_t>(payload_.size());  // Calculate the new payload size
+    request_[19] = payloadSize_ & 0xFF;        // Byte 1 (LSB)
+    request_[20] = (payloadSize_ >> 8) & 0xFF;  // Byte 2
+    request_[21] = (payloadSize_ >> 16) & 0xFF; // Byte 3
+    request_[22] = (payloadSize_ >> 24) & 0xFF; // Byte 4 (MSB)
+
+    // Append the payload to the full request
+    request_.insert(request_.end(), payload_.begin(), payload_.end());
+}
+
+void Request::buildSendPacketRequest(const std::string& name) {
     // Clear the current payload
     payload_.clear();
 

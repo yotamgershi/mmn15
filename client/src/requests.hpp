@@ -16,6 +16,10 @@ enum RequestCode {
     CRC_INVALID_4TH_TIME = 902
 };
 
+int CONTENT_SIZE = 4096;
+
+
+
 class Request {
 public:
     // Constructor that parses the request code and builds the appropriate request
@@ -39,7 +43,7 @@ private:
     void buildSignUpRequest(const std::string& name);
     void buildSendPublicKeyRequest(const std::string& name, const std::string& publicKey);
     void buildSignInRequest(std::string name);
-    void buildSendFileRequest(const std::string& name);
+    void buildSendPacketRequest(const std::string& name);
 };
 
 #endif // REQUEST_HPP
