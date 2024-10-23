@@ -11,17 +11,13 @@
 #include <cryptopp/files.h>
 #include <cryptopp/hex.h>
 #include <cstring>
-
 #include "client.hpp"
 #include "requests.hpp"
 #include "responses.hpp"
 #include "AESWrapper.h"
 #include "Base64Wrapper.h"
 #include "RSAWrapper.h"
-
-int VERSION = 3;
-
-
+#include "cksum_new.hpp"
 
 Client::Client(const std::string& host, const std::string& port, const std::string& name, const std::string& clientID)
     : resolver_(io_context_), socket_(io_context_), host_(host), port_(port), name_(name), clientID_(clientID) {}
@@ -396,7 +392,79 @@ std::string getClientIDFromFile() {
     return std::string(clientIDBytes.begin(), clientIDBytes.end());  // Return as a binary string
 }
 
-
 std::string getAesFromFile() {
     return getLineFromFile("me.info", 2);  // Third line for the AES key
+}
+
+void Client::sendFile(const std::string& filePath) {
+    // Step 1: Read the file content
+    std::cout << "Reading file: " << filePath << std::endl;
+    std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open the file.");
+    }
+
+    size_t fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    std::vector<uint8_t> fileContent(fileSize);
+    file.read(reinterpret_cast<char*>(fileContent.data()), fileSize);
+    file.close();
+
+    // Step 2: Initialize AESWrapper with a key (you might already have the key)
+    std::cout << "Initializing AES encryption..." << std::endl;
+    AESWrapper aesWrapper;  // Use the default constructor to generate a key
+    const unsigned char* aesKey = aesWrapper.getKey();  // You can store/use this key later
+
+    std::cout << "Encrypting file content..." << std::endl;
+    // Step 3: Encrypt the file content
+    std::string encryptedFile = aesWrapper.encrypt(reinterpret_cast<const char*>(fileContent.data()), fileContent.size());
+
+    std::cout << "File encrypted successfully. Converting to vector" << std::endl;
+    // Convert the encrypted file content to std::vector<uint8_t> for further processing
+    std::vector<uint8_t> encryptedFileContent(encryptedFile.begin(), encryptedFile.end());
+
+    std::cout << "File converted to vector. Sending file by packets..." << std::endl;
+    // Step 4: Packetize and send the encrypted
+    size_t totalPackets = (encryptedFileContent.size() + MAX_CONTENT_SIZE - 1) / MAX_CONTENT_SIZE;  // Calculate number of packets
+    size_t packetNum = 0;
+
+    while (packetNum < totalPackets) {
+        // Extract the next chunk of the file (up to MAX_CONTENT_SIZE bytes)
+        size_t start = packetNum * MAX_CONTENT_SIZE;
+        size_t end = std::min(start + MAX_CONTENT_SIZE, encryptedFileContent.size());
+
+        std::vector<uint8_t> packetContent(encryptedFileContent.begin() + start, encryptedFileContent.begin() + end);
+
+        // Build the request for the current packet
+        std::vector<uint8_t> requestBuffer;
+        buildSendPacketRequest(packetContent.size(), fileSize, packetNum, totalPackets, filePath, packetContent, requestBuffer);
+
+        // Send the request
+        send(requestBuffer);
+
+        packetNum++;
+    }
+}
+
+void Client::calculateCRC(const std::string& filePath) {
+    if (std::filesystem::exists(filePath)) {
+        std::filesystem::path fpath = filePath;
+        std::ifstream file(filePath.c_str(), std::ios::binary);
+
+        size_t size = std::filesystem::file_size(fpath);
+        char* buffer = new char[size];
+        file.seekg(0, std::ios::beg);
+        file.read(buffer, size);
+
+        // Calculate the CRC using memcrc function from cksum_new.cpp
+        crcValue_ = memcrc(buffer, size);
+
+        // Clean up the buffer
+        delete[] buffer;
+
+        std::cout << "CRC calculated: " << crcValue_ << std::endl;
+    } else {
+        std::cerr << "File not found: " << filePath << std::endl;
+    }
 }

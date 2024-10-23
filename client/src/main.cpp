@@ -7,29 +7,7 @@
 void incrementSecondRowNumber(const std::string& filename);
 
 int main() {
-    // Step 1: Read the transfer info from the file (assuming "transfer.info" exists)
-    auto [host, port, clientName, filePath] = readTransferInfo("transfer.info"); 
-
-    // Step 2: Initialize the Client object with host, port, client name, and file path
-    Client client(host, port, clientName, filePath);
-
-    // Step 3: Connect the client to the server
-    client.connect();
-
-    // Step 4: Perform sign-in
-    if (client.signIn()) {
-        std::cout << "Sign-in successful." << std::endl;
-    } else {
-        std::cerr << "Sign-in failed." << std::endl;
-    }
-
-    // Step 5
-
-    return 0;
-};
-
-int main1() {
-    // For debugging porpoises - increment the second row number in "transfer.info"
+    // Increment second row number for debugging purposes
     incrementSecondRowNumber("transfer.info");
 
     // Step 1: Read the transfer info from the file (assuming "transfer.info" exists)
@@ -41,48 +19,61 @@ int main1() {
     // Step 3: Connect the client to the server
     client.connect();
 
-    // Step 4: Perform sign-up and receive client ID
-    auto [success, receivedClientID] = client.signUp();
+    // Step 4: Check if the "me.info" file exists to decide whether to sign up or sign in
+    if (!fileExists("me.info")) {
+        // Sign-up flow
+        std::cout << "No existing client info found, proceeding with sign-up..." << std::endl;
 
-    // Step 5: Check if sign-up was successful
-    if (!success) {
-        std::cerr << "Sign-up failed. Exiting program." << std::endl;
-        client.close();
-        return 1;  // Exit the program since sign-up failed
-    }
+        auto [success, receivedClientID] = client.signUp();
 
-    // Step 6: If sign-up was successful, proceed with AES key generation and public key handling
-    std::cout << "Sign-up successful. Generating AES key..." << std::endl;
+        if (!success) {
+            std::cerr << "Sign-up failed. Exiting program." << std::endl;
+            client.close();
+            return 1;  // Exit the program since sign-up failed
+        }
 
-    // Step 7: Generate AES key and save it to priv.key
-    client.createAndSaveAESKey();  // This generates, saves the AES key, and stores it
+        std::cout << "Sign-up successful. Generating AES key..." << std::endl;
 
-    // Step 8: Generate RSA keys using RSAPrivateWrapper and set the public key in the client
-    RSAPrivateWrapper rsaPrivateWrapper;  // Create an instance of RSAPrivateWrapper (this generates the key pair)
+        // Generate AES key and save it to priv.key
+        client.createAndSaveAESKey();
 
-    // Get the public key from the private wrapper
-    std::string publicKeyStr = rsaPrivateWrapper.getPublicKey();
+        // Generate RSA keys using RSAPrivateWrapper and set the public key in the client
+        RSAPrivateWrapper rsaPrivateWrapper;
+        std::string publicKeyStr = rsaPrivateWrapper.getPublicKey();
 
-    if (publicKeyStr.empty()) {
-        std::cerr << "Error: RSA public key generation failed." << std::endl;
-        client.close();
-        return 1;
-    }
-    std::cout << "Public key generated: " << publicKeyStr << std::endl;
+        if (publicKeyStr.empty()) {
+            std::cerr << "Error: RSA public key generation failed." << std::endl;
+            client.close();
+            return 1;
+        }
 
-    // Set the public key in the Client object
-    client.setPublicKey(publicKeyStr);  // This sets public_key_ in Client
+        std::cout << "Public key generated: " << publicKeyStr << std::endl;
+        client.setPublicKey(publicKeyStr);
 
-    // Step 9: Send the public key using the public_key_ attribute (no arguments)
-    if (client.sendPublicKey()) {
-        std::cout << "Public key sent successfully." << std::endl;
+        // Send the public key
+        if (client.sendPublicKey()) {
+            std::cout << "Public key sent successfully." << std::endl;
+        } else {
+            std::cerr << "Failed to send the public key." << std::endl;
+        }
     } else {
-        std::cerr << "Failed to send the public key." << std::endl;
+        // Sign-in flow
+        std::cout << "Existing client info found, proceeding with sign-in..." << std::endl;
+
+        if (client.signIn()) {
+            std::cout << "Sign-in successful." << std::endl;
+        } else {
+            std::cerr << "Sign-in failed." << std::endl;
+            client.close();
+            return 1;
+        }
     }
 
-    // 
+    // Step 5: Send file (regardless of sign-up or sign-in)
+    std::cout << "Now trying to send the file: " << filePath << std::endl;
+    client.sendFile(filePath);
 
-    // Step 10: Close the connection after tasks are complete    
+    // Step 6: Close the connection after tasks are complete
     client.close();
 
     return 0;

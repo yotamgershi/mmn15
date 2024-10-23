@@ -83,6 +83,11 @@ class Server:
                 response = request.handle_sign_in(self.db_handler)
                 conn.sendall(response.to_bytes())
                 logging.info(f"Sent response: {response}")
+            case RequestCode.SEND_FILE:
+                logging.info("Received SEND_FILE request")
+                response = request.handle_send_file(self.db_handler)
+                conn.sendall(response.to_bytes())
+                logging.info(f"Sent response: {response}")
             case _:
                 logging.error(f"Unknown request code: {request.code}")
 

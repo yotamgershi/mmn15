@@ -46,9 +46,6 @@ void Request::buildRequest(uint16_t requestCode, const std::string& name, const 
         case RequestCode::SIGN_IN:
             buildSignInRequest(name);
             break;
-        case RequestCode::SEND_FILE:
-            buildSendPacketRequest(name);
-            break;
         default:
             throw std::runtime_error("Unknown request code");
     }
@@ -116,24 +113,41 @@ void Request::buildSignInRequest(std::string name) {
     request_.insert(request_.end(), payload_.begin(), payload_.end());
 }
 
-void Request::buildSendPacketRequest(const std::string& name) {
-    // Clear the current payload
-    payload_.clear();
+void buildSendPacketRequest(size_t contentSize, size_t origFileSize, size_t packetNum, size_t totalPackets, const std::string& fileName, const std::vector<uint8_t>& messageContent, std::vector<uint8_t>& requestBuffer) {
+    // Clear the request buffer
+    requestBuffer.clear();
 
-    // Build the name field (255 bytes, null-terminated)
-    std::vector<uint8_t> nameField(255, 0);  // Initialize with 255 null bytes
-    std::memcpy(nameField.data(), name.c_str(), std::min<size_t>(name.length(), 254));  // Copy name (up to 254 chars)
+    // 1. Add request code (828 in little-endian, 2 bytes)
+    requestBuffer.push_back(0x3C);  // Lower byte of 828
+    requestBuffer.push_back(0x03);  // Upper byte of 828
+
+    // 2. Add content size (4 bytes, little-endian)
+    requestBuffer.push_back(static_cast<uint8_t>(contentSize & 0xFF));
+    requestBuffer.push_back(static_cast<uint8_t>((contentSize >> 8) & 0xFF));
+    requestBuffer.push_back(static_cast<uint8_t>((contentSize >> 16) & 0xFF));
+    requestBuffer.push_back(static_cast<uint8_t>((contentSize >> 24) & 0xFF));
+
+    // 3. Add original file size (4 bytes, little-endian)
+    requestBuffer.push_back(static_cast<uint8_t>(origFileSize & 0xFF));
+    requestBuffer.push_back(static_cast<uint8_t>((origFileSize >> 8) & 0xFF));
+    requestBuffer.push_back(static_cast<uint8_t>((origFileSize >> 16) & 0xFF));
+    requestBuffer.push_back(static_cast<uint8_t>((origFileSize >> 24) & 0xFF));
+
+    // 4. Add packet number and total packets (2 + 2 bytes, little-endian)
+    requestBuffer.push_back(static_cast<uint8_t>(packetNum & 0xFF));         // Packet number (lower byte)
+    requestBuffer.push_back(static_cast<uint8_t>((packetNum >> 8) & 0xFF));  // Packet number (upper byte)
+    requestBuffer.push_back(static_cast<uint8_t>(totalPackets & 0xFF));      // Total packets (lower byte)
+    requestBuffer.push_back(static_cast<uint8_t>((totalPackets >> 8) & 0xFF));  // Total packets (upper byte)
+
+    // 5. Add the file name (255 bytes, padded with null bytes)
+    if (fileName.size() > 255) {
+        throw std::runtime_error("File name exceeds 255 characters.");
+    }
+    requestBuffer.insert(requestBuffer.end(), fileName.begin(), fileName.end());  // Insert the file name
+    requestBuffer.insert(requestBuffer.end(), 255 - fileName.size(), 0);  // Padding with null bytes
+
+    // 6. Add the message content (messageContent.size() should be <= MAX_CONTENT_SIZE)
+    requestBuffer.insert(requestBuffer.end(), messageContent.begin(), messageContent.end());
     
-    // Insert the name field into the payload
-    payload_.insert(payload_.end(), nameField.begin(), nameField.end());
-
-    // Update the payload size in the request header (assuming payload size starts at byte 19)
-    payloadSize_ = static_cast<uint32_t>(payload_.size());  // Calculate the new payload size
-    request_[19] = payloadSize_ & 0xFF;        // Byte 1 (LSB)
-    request_[20] = (payloadSize_ >> 8) & 0xFF;  // Byte 2
-    request_[21] = (payloadSize_ >> 16) & 0xFF; // Byte 3
-    request_[22] = (payloadSize_ >> 24) & 0xFF; // Byte 4 (MSB)
-
-    // Append the payload to the full request
-    request_.insert(request_.end(), payload_.begin(), payload_.end());
+    // Request is now fully constructed in requestBuffer
 }

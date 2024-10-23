@@ -11,6 +11,7 @@
 #include "requests.hpp"
 
 const int DEFAULT_KEYLENGTH = 32;
+const int MAX_CONTENT_SIZE = 32;
 
 class Client {
 public:
@@ -29,6 +30,8 @@ public:
     void setPublicKey(const std::string& publicKey) {public_key_ = publicKey;};
     std::string Client::getAESKey() {return std::string(aes_key_, aes_key_ + DEFAULT_KEYLENGTH);};
     bool Client::signIn();
+    void Client::sendFile(const std::string& filePath);
+    void calculateCRC(const std::string& filePath);  // Function to calculate CRC from a file
 
 private:
     boost::asio::io_context io_context_;
@@ -42,6 +45,7 @@ private:
     std::string public_key_;
     unsigned char aes_key_[DEFAULT_KEYLENGTH];
     std::string Client::decryptWithPrivateKey(const std::string& encryptedKey);
+    unsigned long crcValue_;
 };
 
 std::tuple<std::string, std::string, std::string, std::string> readTransferInfo(const std::string& filename);
@@ -49,5 +53,6 @@ std::string getLineFromFile(const std::string& filePath, int lineNumber);
 std::string getNameFromFile(); //() {return getLineFromFile("me.info", 0);}
 std::string getClientIDFromFile(); // () {return getLineFromFile("me.info", 1);}
 std::string getAesFromFile(); // {return getLineFromFile("me.info", 2);}
+bool fileExists(const std::string& filename);
 
 #endif // CLIENT_HPP

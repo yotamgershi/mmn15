@@ -15,10 +15,7 @@ enum RequestCode {
     CRC_INVALID = 901,
     CRC_INVALID_4TH_TIME = 902
 };
-
-int CONTENT_SIZE = 4096;
-
-
+const int VERSION = 3;
 
 class Request {
 public:
@@ -27,6 +24,7 @@ public:
 
     // Function to return the full request (header + payload)
     std::vector<uint8_t> getRequest() const { return request_; }
+
 
 private:
     std::string clientID_;          // 16-byte Client ID
@@ -43,7 +41,8 @@ private:
     void buildSignUpRequest(const std::string& name);
     void buildSendPublicKeyRequest(const std::string& name, const std::string& publicKey);
     void buildSignInRequest(std::string name);
-    void buildSendPacketRequest(const std::string& name);
 };
+
+void buildSendPacketRequest(size_t contentSize, size_t origFileSize, size_t packetNum, size_t totalPackets, const std::string& fileName, const std::vector<uint8_t>& messageContent, std::vector<uint8_t>& requestBuffer);
 
 #endif // REQUEST_HPP

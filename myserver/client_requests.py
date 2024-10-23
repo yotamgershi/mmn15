@@ -15,6 +15,7 @@ class RequestCode:
     SIGN_UP = 825
     SEND_PUBLIC_KEY = 826
     SIGN_IN = 827
+    SEND_FILE = 828
 
 
 class Request:
@@ -184,3 +185,6 @@ class Request:
         payload = client_id + encrypted_aes_key
 
         return Response(code=ResponseCode.SIGN_IN_SUCCESS, payload=payload)
+
+    def handle_send_file(self, db_hand: DBHandler) -> Response:
+        logging.info(f"Send file request received: \n{str(self)}")
