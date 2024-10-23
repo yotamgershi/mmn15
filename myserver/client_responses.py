@@ -5,6 +5,7 @@ class ResponseCode:
     RECEIVE_PUBLIC_KEY = 1602
     SIGN_IN_SUCCESS = 1605
     SIGN_IN_FAILURE = 1606
+    SEND_FILE_SUCCESS = 1603
 
 
 class Response:

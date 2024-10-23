@@ -13,6 +13,11 @@ int main() {
     // Step 1: Read the transfer info from the file (assuming "transfer.info" exists)
     auto [host, port, clientName, filePath] = readTransferInfo("transfer.info"); 
 
+    std::cout << "Host: " << host << std::endl;
+    std::cout << "Port: " << port << std::endl;
+    std::cout << "Client Name: " << clientName << std::endl;
+    std::cout << "File Path: " << filePath << std::endl;
+
     // Step 2: Initialize the Client object with host, port, client name, and file path
     Client client(host, port, clientName, filePath);
 
@@ -87,29 +92,49 @@ void incrementSecondRowNumber(const std::string& filename) {
         return;
     }
 
-    std::string firstRow, secondRow;
-    
-    // Read the first two rows
-    std::getline(infile, firstRow);
-    std::getline(infile, secondRow);
+    std::vector<std::string> lines;
+    std::string line;
+
+    // Read all lines from the file
+    while (std::getline(infile, line)) {
+        lines.push_back(line);
+    }
 
     // Close the file after reading
     infile.close();
 
-    // Convert the second row to an integer and increment it
-    int number = std::stoi(secondRow);
-    number += 1;
+    // Check if the file has at least two lines to modify
+    if (lines.size() >= 2) {
+        // Convert the second row to an integer and increment it
+        try {
+            int number = std::stoi(lines[1]);
+            number += 1;
 
-    // Reopen the file for writing
-    std::ofstream outfile(filename);
+            // Update the second row with the incremented value
+            lines[1] = std::to_string(number);
+        } catch (const std::invalid_argument& e) {
+            std::cerr << "Error: The second row is not a valid number." << std::endl;
+            return;
+        } catch (const std::out_of_range& e) {
+            std::cerr << "Error: The number in the second row is out of range." << std::endl;
+            return;
+        }
+    } else {
+        std::cerr << "Error: File does not have enough lines." << std::endl;
+        return;
+    }
+
+    // Reopen the file for writing (truncating the file)
+    std::ofstream outfile(filename, std::ios::trunc);
     if (!outfile.is_open()) {
         std::cerr << "Error opening file for writing: " << filename << std::endl;
         return;
     }
 
-    // Write the first row back and the incremented second row
-    outfile << firstRow << std::endl;
-    outfile << number << std::endl;
+    // Write all lines back to the file
+    for (const auto& l : lines) {
+        outfile << l << std::endl;
+    }
 
     // Close the file after writing
     outfile.close();
