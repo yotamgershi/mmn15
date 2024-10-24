@@ -7,6 +7,7 @@ from db_handler import DBHandler
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto import Random
+import cksum
 
 AES_KEY_SIZE = 16
 
@@ -23,7 +24,7 @@ class Request:
     VERSION_SIZE = 1
     CODE_SIZE = 2
     PAYLOAD_SIZE_SIZE = 4
-    MAX_PAYLOAD_SIZE = 999999999999999
+    MAX_PAYLOAD_SIZE = 1024
 
     def __init__(self, data: bytes):
         self.header = Request.parse_header(data)
@@ -221,16 +222,16 @@ class Request:
         self.file_content += packet_content
 
         # Check if this is the last packet
-        if packet_number == total_packets:
+        if packet_number == total_packets - 1:
             logging.info("All packets received. Verifying file integrity...")
 
             # Step 3: Verify the file size
-            if len(self.file_content) != self.expected_file_size:
-                logging.error(f"File size mismatch! Expected {self.expected_file_size}, received {len(self.file_content)}")
-                return Response(code=ResponseCode.FILE_SIZE_ERROR, payload=b'')
+            # if len(self.file_content) != self.expected_file_size:
+            #     logging.error(f"File size mismatch! Expected {self.expected_file_size}, received {len(self.file_content)}")
+            #     return Response(code=ResponseCode.FILE_SIZE_ERROR, payload=b'')
 
             # Step 4: Calculate the CRC (this is a placeholder for actual CRC implementation)
-            crc_value = self.calculate_crc(self.file_content)
+            crc_value = cksum.memcrc(self.file_content)
             logging.info(f"Calculated CRC: {crc_value}")
 
             # Step 5: Prepare the response (1603) with Client ID, Content Size, File Name, and CRC
@@ -241,13 +242,6 @@ class Request:
                 crc_value.to_bytes(4, byteorder='little')  # CRC Checksum
             )
 
-            response = Response(code=ResponseCode.SEND_FILE, payload=response_payload)
+            response = Response(code=ResponseCode.SEND_FILE_SUCCESS, payload=response_payload)
             logging.info(f"Send file response prepared with CRC: {crc_value}")
             return response
-
-        # If not the last packet, acknowledge receipt (could return an ACK response)
-        logging.info(f"Acknowledging receipt of packet {packet_number}/{total_packets}")
-        return Response(code=ResponseCode.ACK, payload=b'')
-
-    def calculate_crc(self, data: bytes) -> int:
-        return 1234  # Placeholder CRC value for demonstration purposes

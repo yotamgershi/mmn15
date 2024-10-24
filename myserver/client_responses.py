@@ -6,6 +6,7 @@ class ResponseCode:
     SIGN_IN_SUCCESS = 1605
     SIGN_IN_FAILURE = 1606
     SEND_FILE_SUCCESS = 1603
+    ACK = 1604
 
 
 class Response:
