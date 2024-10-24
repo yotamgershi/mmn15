@@ -11,6 +11,7 @@
 #include <cryptopp/files.h>
 #include <cryptopp/hex.h>
 #include <cstring>
+#include <sstream>
 #include "client.hpp"
 #include "requests.hpp"
 #include "responses.hpp"
@@ -424,10 +425,29 @@ void Client::sendFile(const std::string& filePath) {
     // Convert the encrypted file content to std::vector<uint8_t> for further processing
     std::vector<uint8_t> encryptedFileContent(encryptedFile.begin(), encryptedFile.end());
 
+    // Ensure encrypted file content is not empty
+    if (encryptedFileContent.empty()) {
+        throw std::runtime_error("Encrypted file content is empty.");
+    }
+
     std::cout << "File converted to vector. Sending file by packets..." << std::endl;
-    // Step 4: Packetize and send the encrypted
+
+    // Ensure MAX_CONTENT_SIZE is properly defined
+    if (MAX_CONTENT_SIZE == 0) {
+        throw std::runtime_error("MAX_CONTENT_SIZE must be greater than 0.");
+    }
+
+    // Step 4: Packetize and send the encrypted file
     size_t totalPackets = (encryptedFileContent.size() + MAX_CONTENT_SIZE - 1) / MAX_CONTENT_SIZE;  // Calculate number of packets
     size_t packetNum = 0;
+
+    // Step 5: Use clientID_ attribute for sending the client ID
+    std::string clientIDStr = getClientIDFromFile();
+    std::vector<uint8_t> clientIdBytes(clientIDStr.begin(), clientIDStr.end());
+    std::cout << "Client ID size (after padding): " << clientIdBytes.size() << std::endl;
+    std::cout << "Client ID: " << bytesToHexString(clientIdBytes) << std::endl;
+
+    std::vector<uint8_t> fileNameBytes(filePath.begin(), filePath.end());
 
     while (packetNum < totalPackets) {
         // Extract the next chunk of the file (up to MAX_CONTENT_SIZE bytes)
@@ -438,9 +458,22 @@ void Client::sendFile(const std::string& filePath) {
 
         // Build the request for the current packet
         std::vector<uint8_t> requestBuffer;
-        buildSendPacketRequest(packetContent.size(), fileSize, packetNum, totalPackets, filePath, packetContent, requestBuffer);
+        // Ensure you're passing the correct arguments in the proper order and types
+        buildSendPacketRequest(
+            clientIdBytes,               // std::vector<uint8_t>
+            packetContent.size(),         // size_t (contentSize)
+            fileSize,                     // size_t (original file size)
+            packetNum,                    // size_t (packet number)
+            totalPackets,                 // size_t (total packets)
+            filePath,                     // std::string (file name) <--- This should be a string, not a vector
+            packetContent,                // std::vector<uint8_t> (message content)
+            requestBuffer                 // std::vector<uint8_t> (request buffer)
+        );
+
+        std::cout << "Request buffer: " << bytesToHexString(requestBuffer) << std::endl;
 
         // Send the request
+        std::cout << "Packet number: " << (packetNum + 1) << " / " << totalPackets << std::endl;
         send(requestBuffer);
 
         packetNum++;
@@ -467,4 +500,32 @@ void Client::calculateCRC(const std::string& filePath) {
     } else {
         std::cerr << "File not found: " << filePath << std::endl;
     }
+}
+
+std::vector<uint8_t> Client::getClientID() const {
+    std::vector<uint8_t> clientIdBytes(clientID_.begin(), clientID_.end());
+
+    // Pad the client ID to 16 bytes if it is less than 16 bytes
+    if (clientIdBytes.size() < 16) {
+        clientIdBytes.insert(clientIdBytes.end(), 16 - clientIdBytes.size(), 0);
+    }
+
+    return clientIdBytes;
+}
+
+// Convert vector<uint8_t> to byte string
+std::string bytesToHexString(const std::vector<uint8_t>& buffer) {
+    std::ostringstream oss;
+
+    for (const auto& byte : buffer) {
+        if (std::isprint(byte)) {
+            // If the byte is printable, print it as a character
+            oss << byte;
+        } else {
+            // Otherwise, print the byte in hexadecimal format
+            oss << "\\x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
+        }
+    }
+
+    return oss.str();
 }

@@ -43,6 +43,15 @@ private:
     void buildSignInRequest(std::string name);
 };
 
-void buildSendPacketRequest(size_t contentSize, size_t origFileSize, size_t packetNum, size_t totalPackets, const std::string& fileName, const std::vector<uint8_t>& messageContent, std::vector<uint8_t>& requestBuffer);
+void buildSendPacketRequest(
+    const std::vector<uint8_t>& clientIdBytes,
+    size_t contentSize, 
+    size_t origFileSize,
+    size_t packetNum,
+    size_t totalPackets,
+    const std::string& fileName,  // Ensure the fileName is a const std::string& 
+    const std::vector<uint8_t>& messageContent,
+    std::vector<uint8_t>& requestBuffer
+);
 
 #endif // REQUEST_HPP

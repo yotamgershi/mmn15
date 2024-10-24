@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include "client.hpp"
 
 // Constructor that builds the request based on the request code
 Request::Request(const std::string& clientID, uint8_t version, uint16_t requestCode, const std::string& name_, const std::string& publicKey)
@@ -113,41 +114,61 @@ void Request::buildSignInRequest(std::string name) {
     request_.insert(request_.end(), payload_.begin(), payload_.end());
 }
 
-void buildSendPacketRequest(size_t contentSize, size_t origFileSize, size_t packetNum, size_t totalPackets, const std::string& fileName, const std::vector<uint8_t>& messageContent, std::vector<uint8_t>& requestBuffer) {
-    // Clear the request buffer
+void buildSendPacketRequest(
+    const std::vector<uint8_t>& clientIdBytes,
+    size_t contentSize,  // Content size of the current packet
+    size_t origFileSize,  // Original file size
+    size_t packetNum,  // Packet number
+    size_t totalPackets,  // Total number of packets
+    const std::string& fileName,  // File name
+    const std::vector<uint8_t>& messageContent,  // Encrypted content of this packet
+    std::vector<uint8_t>& requestBuffer  // The final request packet
+) {
+    if (clientIdBytes.size() != 16) {
+        throw std::runtime_error("Client ID must be 16 bytes.");
+    }
+
+    // Clear the request buffer before building the packet
     requestBuffer.clear();
 
-    // 1. Add request code (828 in little-endian, 2 bytes)
+    // 1. Add client ID (16 bytes)
+    requestBuffer.insert(requestBuffer.end(), clientIdBytes.begin(), clientIdBytes.end());
+
+    std::cout << "Client ID size (after padding): " << clientIdBytes.size() << std::endl;
+    std::cout << "Client ID: " << bytesToHexString(clientIdBytes) << std::endl;
+
+    // 2. Add version (1 byte, assuming version = 3)
+    requestBuffer.push_back(VERSION);
+
+    // 3. Add request code for SEND_FILE (828 in little-endian, 2 bytes)
     requestBuffer.push_back(0x3C);  // Lower byte of 828
     requestBuffer.push_back(0x03);  // Upper byte of 828
 
-    // 2. Add content size (4 bytes, little-endian)
+    // 4. Add payload size (4 bytes, little-endian)
     requestBuffer.push_back(static_cast<uint8_t>(contentSize & 0xFF));
     requestBuffer.push_back(static_cast<uint8_t>((contentSize >> 8) & 0xFF));
     requestBuffer.push_back(static_cast<uint8_t>((contentSize >> 16) & 0xFF));
     requestBuffer.push_back(static_cast<uint8_t>((contentSize >> 24) & 0xFF));
 
-    // 3. Add original file size (4 bytes, little-endian)
+    // 5. Add original file size (4 bytes, little-endian)
     requestBuffer.push_back(static_cast<uint8_t>(origFileSize & 0xFF));
     requestBuffer.push_back(static_cast<uint8_t>((origFileSize >> 8) & 0xFF));
     requestBuffer.push_back(static_cast<uint8_t>((origFileSize >> 16) & 0xFF));
     requestBuffer.push_back(static_cast<uint8_t>((origFileSize >> 24) & 0xFF));
 
-    // 4. Add packet number and total packets (2 + 2 bytes, little-endian)
+    // 6. Add packet number and total packets (2 + 2 bytes, little-endian)
     requestBuffer.push_back(static_cast<uint8_t>(packetNum & 0xFF));         // Packet number (lower byte)
     requestBuffer.push_back(static_cast<uint8_t>((packetNum >> 8) & 0xFF));  // Packet number (upper byte)
     requestBuffer.push_back(static_cast<uint8_t>(totalPackets & 0xFF));      // Total packets (lower byte)
     requestBuffer.push_back(static_cast<uint8_t>((totalPackets >> 8) & 0xFF));  // Total packets (upper byte)
 
-    // 5. Add the file name (255 bytes, padded with null bytes)
+    // 7. Add the file name (255 bytes, padded with null bytes)
     if (fileName.size() > 255) {
         throw std::runtime_error("File name exceeds 255 characters.");
     }
     requestBuffer.insert(requestBuffer.end(), fileName.begin(), fileName.end());  // Insert the file name
     requestBuffer.insert(requestBuffer.end(), 255 - fileName.size(), 0);  // Padding with null bytes
 
-    // 6. Add the message content (messageContent.size() should be <= MAX_CONTENT_SIZE)
+    // 8. Add the message content (messageContent.size() should be <= MAX_CONTENT_SIZE)
     requestBuffer.insert(requestBuffer.end(), messageContent.begin(), messageContent.end());
-    
-    // Request is now fully constructed in requestBuffer
 }

@@ -11,7 +11,7 @@
 #include "requests.hpp"
 
 const int DEFAULT_KEYLENGTH = 32;
-const int MAX_CONTENT_SIZE = 32;
+const int MAX_CONTENT_SIZE = 1024;
 
 class Client {
 public:
@@ -32,6 +32,7 @@ public:
     bool Client::signIn();
     void Client::sendFile(const std::string& filePath);
     void calculateCRC(const std::string& filePath);  // Function to calculate CRC from a file
+    std::vector<uint8_t> Client::getClientID() const;
 
 private:
     boost::asio::io_context io_context_;
@@ -50,9 +51,10 @@ private:
 
 std::tuple<std::string, std::string, std::string, std::string> readTransferInfo(const std::string& filename);
 std::string getLineFromFile(const std::string& filePath, int lineNumber);
-std::string getNameFromFile(); //() {return getLineFromFile("me.info", 0);}
-std::string getClientIDFromFile(); // () {return getLineFromFile("me.info", 1);}
-std::string getAesFromFile(); // {return getLineFromFile("me.info", 2);}
+std::string getNameFromFile();
+std::string getClientIDFromFile();
+std::string getAesFromFile();
 bool fileExists(const std::string& filename);
+std::string bytesToHexString(const std::vector<uint8_t>& bytes);
 
 #endif // CLIENT_HPP

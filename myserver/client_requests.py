@@ -23,7 +23,7 @@ class Request:
     VERSION_SIZE = 1
     CODE_SIZE = 2
     PAYLOAD_SIZE_SIZE = 4
-    MAX_PAYLOAD_SIZE = 1024
+    MAX_PAYLOAD_SIZE = 999999999999999
 
     def __init__(self, data: bytes):
         self.header = Request.parse_header(data)
@@ -31,9 +31,13 @@ class Request:
         self.client_id = self.header[0]
         logging.info(f"Client ID: {self.client_id.hex()}")
         self.version = self.header[1]
+        logging.info(f"Version: {self.version}")
         self.code = self.header[2]
+        logging.info(f"Code: {self.code}")
         self.payload_size = self.header[3]
+        logging.info(f"Payload size: {self.payload_size}")
         self.payload = self.header[4]
+        logging.info(f"Payload: {self.payload.hex()}")
 
         if self.payload_size > Request.MAX_PAYLOAD_SIZE:
             raise ValueError(f"Invalid request: payload size exceeds maximum size of {Request.MAX_PAYLOAD_SIZE}")
@@ -45,20 +49,26 @@ class Request:
         if len(data) < Request.CLIENT_ID_SIZE + Request.VERSION_SIZE + Request.CODE_SIZE + Request.PAYLOAD_SIZE_SIZE:
             raise ValueError("Invalid request: missing header fields")
 
-        client_id = data[:Request.CLIENT_ID_SIZE]
-        version = data[Request.CLIENT_ID_SIZE:Request.CLIENT_ID_SIZE + Request.VERSION_SIZE]
-        code = data[Request.CLIENT_ID_SIZE + Request.VERSION_SIZE:Request.CLIENT_ID_SIZE + Request.VERSION_SIZE + Request.CODE_SIZE]
-        payload_size = data[Request.CLIENT_ID_SIZE + Request.VERSION_SIZE + Request.CODE_SIZE:Request.CLIENT_ID_SIZE + Request.VERSION_SIZE + Request.CODE_SIZE + Request.PAYLOAD_SIZE_SIZE]
-        payload = data[Request.CLIENT_ID_SIZE + Request.VERSION_SIZE + Request.CODE_SIZE + Request.PAYLOAD_SIZE_SIZE:]
+        # Extract fields in the correct order
+        client_id = data[:Request.CLIENT_ID_SIZE]  # First 16 bytes for client_id
+        version = data[Request.CLIENT_ID_SIZE:Request.CLIENT_ID_SIZE + Request.VERSION_SIZE]  # Next 1 byte for version
+        code = data[Request.CLIENT_ID_SIZE + Request.VERSION_SIZE:Request.CLIENT_ID_SIZE + Request.VERSION_SIZE + Request.CODE_SIZE]  # 2 bytes for code
+        payload_size = data[Request.CLIENT_ID_SIZE + Request.VERSION_SIZE + Request.CODE_SIZE:Request.CLIENT_ID_SIZE + Request.VERSION_SIZE + Request.CODE_SIZE + Request.PAYLOAD_SIZE_SIZE]  # 4 bytes for payload size
+        payload = data[Request.CLIENT_ID_SIZE + Request.VERSION_SIZE + Request.CODE_SIZE + Request.PAYLOAD_SIZE_SIZE:]  # Rest is the payload
 
         try:
             version = int.from_bytes(version, byteorder='little')
             code = int.from_bytes(code, byteorder='little')
             payload_size = int.from_bytes(payload_size, byteorder='little')
-            payload = payload[:payload_size]
+
+            # Check if the payload size matches the actual data size
+            if len(payload) != payload_size:
+                raise ValueError(f"Invalid request: payload size {payload_size} does not match actual size {len(payload)}")
+
         except Exception as e:
             raise ValueError(f"Error parsing header fields: {e}")
 
+        # Now return the client_id and the parsed fields
         return client_id, version, code, payload_size, payload
 
     def __str__(self):
@@ -188,3 +198,56 @@ class Request:
 
     def handle_send_file(self, db_hand: DBHandler) -> Response:
         logging.info(f"Send file request received: \n{str(self)}")
+
+        # Extract original file size (4 bytes), packet number (2 bytes), total packets (2 bytes), file name (255 bytes)
+        original_file_size = int.from_bytes(self.payload[:4], byteorder='little')
+        logging.info(f"Original file size: {original_file_size} bytes")
+
+        packet_number = int.from_bytes(self.payload[4:6], byteorder='little')
+        total_packets = int.from_bytes(self.payload[6:8], byteorder='little')
+        file_name = self.payload[8:263].rstrip(b'\x00').decode('ascii')  # File name is in bytes 8 to 263
+        packet_content = self.payload[263:]  # Packet content starts after the file name
+
+        logging.info(f"Extracted file name: {file_name}")
+        logging.info(f"Packet content size: {len(packet_content)} bytes, packet number: {packet_number}/{total_packets}")
+
+        # Step 1: Initialize file content collection if it hasn't been done already
+        if not hasattr(self, 'file_content'):
+            self.file_content = b''  # Initialize file content storage
+            self.expected_file_size = original_file_size
+            logging.info(f"Expected file size: {self.expected_file_size} bytes")
+
+        # Step 2: Append the current packet content to file_content
+        self.file_content += packet_content
+
+        # Check if this is the last packet
+        if packet_number == total_packets:
+            logging.info("All packets received. Verifying file integrity...")
+
+            # Step 3: Verify the file size
+            if len(self.file_content) != self.expected_file_size:
+                logging.error(f"File size mismatch! Expected {self.expected_file_size}, received {len(self.file_content)}")
+                return Response(code=ResponseCode.FILE_SIZE_ERROR, payload=b'')
+
+            # Step 4: Calculate the CRC (this is a placeholder for actual CRC implementation)
+            crc_value = self.calculate_crc(self.file_content)
+            logging.info(f"Calculated CRC: {crc_value}")
+
+            # Step 5: Prepare the response (1603) with Client ID, Content Size, File Name, and CRC
+            response_payload = (
+                self.client_id +
+                len(self.file_content).to_bytes(4, byteorder='little') +  # Content Size
+                file_name.encode('ascii').ljust(255, b'\x00') +  # File Name (padded with null bytes)
+                crc_value.to_bytes(4, byteorder='little')  # CRC Checksum
+            )
+
+            response = Response(code=ResponseCode.SEND_FILE, payload=response_payload)
+            logging.info(f"Send file response prepared with CRC: {crc_value}")
+            return response
+
+        # If not the last packet, acknowledge receipt (could return an ACK response)
+        logging.info(f"Acknowledging receipt of packet {packet_number}/{total_packets}")
+        return Response(code=ResponseCode.ACK, payload=b'')
+
+    def calculate_crc(self, data: bytes) -> int:
+        return 1234  # Placeholder CRC value for demonstration purposes
