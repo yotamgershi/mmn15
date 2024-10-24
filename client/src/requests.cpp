@@ -144,11 +144,12 @@ void buildSendPacketRequest(
     requestBuffer.push_back(0x3C);  // Lower byte of 828
     requestBuffer.push_back(0x03);  // Upper byte of 828
 
-    // 4. Add payload size (4 bytes, little-endian)
-    requestBuffer.push_back(static_cast<uint8_t>(contentSize & 0xFF));
-    requestBuffer.push_back(static_cast<uint8_t>((contentSize >> 8) & 0xFF));
-    requestBuffer.push_back(static_cast<uint8_t>((contentSize >> 16) & 0xFF));
-    requestBuffer.push_back(static_cast<uint8_t>((contentSize >> 24) & 0xFF));
+    // 4. Calculate and add payload size (4 bytes, little-endian)
+    size_t payloadSize = 4 + 4 + 255 + messageContent.size();  // Adjusted calculation
+    requestBuffer.push_back(static_cast<uint8_t>(payloadSize & 0xFF));
+    requestBuffer.push_back(static_cast<uint8_t>((payloadSize >> 8) & 0xFF));
+    requestBuffer.push_back(static_cast<uint8_t>((payloadSize >> 16) & 0xFF));
+    requestBuffer.push_back(static_cast<uint8_t>((payloadSize >> 24) & 0xFF));
 
     // 5. Add original file size (4 bytes, little-endian)
     requestBuffer.push_back(static_cast<uint8_t>(origFileSize & 0xFF));
