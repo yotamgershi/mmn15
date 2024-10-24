@@ -5,13 +5,15 @@
 #include <string>
 #include <stdexcept>
 #include <iostream>
+#include "cksum_new.hpp"
 
 enum ResponseCodes {
     SIGN_UP_SUCCESS = 1600,
     SIGN_UP_FAILURE = 1601,
     PUBLIC_KEY_RECEIVED = 1602,
     SIGN_IN_SUCCESS = 1605,
-    SIGN_IN_FAILURE = 1606
+    SIGN_IN_FAILURE = 1606,
+    SEND_FILE_SUCCESS = 1603,
 };
 
 class Response {
@@ -27,6 +29,7 @@ public:
     std::string Response::getAesKey() const {return std::string(encryptedAESKey_.begin(), encryptedAESKey_.end()); }
     std::string Response::getAESKey() const;
 
+
     // Specific parsing functions for different request codes
     void parseSignUpSuccessResponse();
     void parseSignUpFailureResponse();
@@ -34,6 +37,8 @@ public:
     void parsePublicKeyReceivedResponse();
     void parseSignInSuceessResponse();
     void parseSignInFailureResponse();
+    void parseSendFileSuccessResponse();
+    uint32_t getCRCValue() const { return crc_value_; }
 
 private:
     uint8_t version_;               // 1-byte version
@@ -43,6 +48,7 @@ private:
     std::vector<uint8_t> encryptedAESKey_; // Encrypted AES key
     // General function to dispatch parsing based on response code
     void parse(uint16_t responseCode);
+    uint32_t crc_value_;             // 4-byte CRC value
 };
 
 

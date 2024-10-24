@@ -39,6 +39,9 @@ void Response::parse(uint16_t responseCode) {
         case SIGN_IN_FAILURE:
             parseSignInFailureResponse();
             break;
+        case SEND_FILE_SUCCESS:
+            parseSendFileSuccessResponse();
+            break;
         default:
             std::cerr << "Unknown response code: " << responseCode << std::endl;
             break;
@@ -125,3 +128,22 @@ std::string Response::getAESKey() const {
     }
 }
 
+void Response::parseSendFileSuccessResponse() {
+    std::cout << "File sent successfully!" << std::endl;
+
+    // Ensure the payload has at least 4 bytes for the CRC value
+    if (payload_.size() < 4) {
+        throw std::runtime_error("Payload too short to contain a CRC value");
+    }
+
+    // Extract the last 4 bytes as the CRC value (little-endian)
+    crc_value_ = static_cast<uint32_t>(
+        payload_[payload_.size() - 4] |
+        (payload_[payload_.size() - 3] << 8) |
+        (payload_[payload_.size() - 2] << 16) |
+        (payload_[payload_.size() - 1] << 24)
+    );
+
+    // Print the extracted CRC value
+    std::cout << "CRC value: " << std::hex << crc_value_ << std::dec << std::endl;
+}

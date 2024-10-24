@@ -412,6 +412,9 @@ void Client::sendFile(const std::string& filePath) {
     file.read(reinterpret_cast<char*>(fileContent.data()), fileSize);
     file.close();
 
+    // Calculate the CRC value of the file content
+    calculateCRC(filePath);
+
     // Step 2: Initialize AESWrapper with a key (you might already have the key)
     std::cout << "Initializing AES encryption..." << std::endl;
     AESWrapper aesWrapper;  // Use the default constructor to generate a key
@@ -478,6 +481,25 @@ void Client::sendFile(const std::string& filePath) {
 
         packetNum++;
     }
+
+    Response response = receive();
+
+    if (response.getResponseCode() == ResponseCodes::SEND_FILE_SUCCESS) {
+        std::cout << "File sent successfully!" << std::endl;
+    } else {
+        std::cerr << "Error: File transfer failed. Response code: " << response.getResponseCode() << std::endl;
+    }
+
+    // Step 6: Get the CRC value from the response
+    uint32_t crcValueFromServer = response.getCRCValue();
+    uint32_t crcValueFromClient = getCRCValue();
+
+    // Compare the CRC value from the response with the calculated CRC value
+    if (crcValueFromServer == crcValueFromClient) {
+        std::cout << "CRC matched: " << crcValueFromClient << std::endl;
+    } else {
+        std::cerr << "CRC mismatch! Expected: " << crcValueFromClient << ", Received: " << crcValueFromServer << std::endl;
+    }        
 }
 
 void Client::calculateCRC(const std::string& filePath) {

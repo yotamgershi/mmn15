@@ -33,6 +33,7 @@ public:
     void Client::sendFile(const std::string& filePath);
     void calculateCRC(const std::string& filePath);  // Function to calculate CRC from a file
     std::vector<uint8_t> Client::getClientID() const;
+    uint32_t Client::getCRCValue() const {return crcValue_;};
 
 private:
     boost::asio::io_context io_context_;
