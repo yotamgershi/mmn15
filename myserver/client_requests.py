@@ -8,8 +8,11 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto import Random
 import cksum
+from Crypto.Cipher import AES
+from Crypto.Util import Padding
 
-AES_KEY_SIZE = 16
+
+AES_KEY_SIZE = 32
 
 
 class RequestCode:
@@ -102,7 +105,7 @@ class Request:
     @staticmethod
     def handle_keys(client_id: bytes, db_hand: DBHandler) -> Tuple[bytes, bytes]:
         """
-        Generate AES key, retrieve public key, and encrypt AES key with the public RSA key.
+        Generate AES key and insert into database, retrieve public key, and encrypt AES key with the public RSA key.
         Returns the client_id and the encrypted AES key.
         """
         # Retrieve the client's public key from the database
@@ -111,6 +114,9 @@ class Request:
 
         # Generate a new AES key for the client
         aes_key = Random.get_random_bytes(AES_KEY_SIZE)
+
+        # Set AES key in the database
+        db_hand.set_client_aes_key(client_id, aes_key)
 
         # Encrypt the AES key with the client's public RSA key
         encrypted_aes_key = Request.encrypt_aes_key_with_rsa(aes_key, public_key)
@@ -132,9 +138,6 @@ class Request:
 
         # Use the helper function to handle AES generation and encryption
         client_id, encrypted_aes_key = Request.handle_keys(client_id, db_hand)
-
-        # Set the AES key in the database after encryption
-        db_hand.set_client_aes_key(client_id, encrypted_aes_key)
 
         # Construct the response payload: 16-byte client ID + encrypted AES key
         response_payload = client_id + encrypted_aes_key
@@ -223,21 +226,30 @@ class Request:
 
         # Check if this is the last packet
         if packet_number == total_packets - 1:
-            logging.info("All packets received. Verifying file integrity...")
+            logging.info("All packets received. Decrypting file...")
 
-            # Step 3: Verify the file size
-            # if len(self.file_content) != self.expected_file_size:
-            #     logging.error(f"File size mismatch! Expected {self.expected_file_size}, received {len(self.file_content)}")
-            #     return Response(code=ResponseCode.FILE_SIZE_ERROR, payload=b'')
+            # Step 3: Decrypt the received file content
+            try:
+                decrypted_file_content = self.decrypt_file_content(self.file_content, self.client_id, db_hand)
+                logging.info(f"Decrypted file content: {decrypted_file_content}")
+            except ValueError as e:
+                logging.error(f"Decryption failed: {e}")
 
-            # Step 4: Calculate the CRC (this is a placeholder for actual CRC implementation)
-            crc_value = cksum.memcrc(self.file_content)
+            # Optional: Verify the decrypted file size
+            if len(decrypted_file_content) != self.expected_file_size:
+                logging.error(f"Decrypted file size mismatch! Expected {self.expected_file_size}, received {len(decrypted_file_content)}")
+                return Response(code=ResponseCode.FILE_SIZE_ERROR, payload=b'')
+
+            logging.info("File decrypted successfully. Verifying file integrity...")
+
+            # Step 4: Calculate the CRC of the decrypted content
+            crc_value = cksum.memcrc(decrypted_file_content)
             logging.info(f"Calculated CRC: {crc_value}")
 
             # Step 5: Prepare the response (1603) with Client ID, Content Size, File Name, and CRC
             response_payload = (
                 self.client_id +
-                len(self.file_content).to_bytes(4, byteorder='little') +  # Content Size
+                len(decrypted_file_content).to_bytes(4, byteorder='little') +  # Content Size
                 file_name.encode('ascii').ljust(255, b'\x00') +  # File Name (padded with null bytes)
                 crc_value.to_bytes(4, byteorder='little')  # CRC Checksum
             )
@@ -245,3 +257,30 @@ class Request:
             response = Response(code=ResponseCode.SEND_FILE_SUCCESS, payload=response_payload)
             logging.info(f"Send file response prepared with CRC: {crc_value}")
             return response
+
+    def decrypt_file_content(self, encrypted_content: bytes, client_id: bytes, db_hand: DBHandler) -> bytes:
+        """
+        Decrypt the file content using AES in CBC mode.
+        Fetches the AES key from the database using the client_id.
+        Assumes the IV is 16 bytes of zero.
+        """
+        # Fetch the AES key from the database using the client ID
+        aes_key = db_hand.get_aes_key(client_id)
+
+        # Check if the AES key was found
+        if aes_key is None:
+            raise ValueError("AES key not found for client ID")
+
+        logging.info(f"Retrieved AES key: {aes_key}")
+        logging.info(f"AES key size: {len(aes_key)} bytes")
+
+        # Use AES CBC mode for decryption with a zeroed 16-byte IV
+        cipher = AES.new(aes_key, AES.MODE_CBC, iv=bytes(16))
+
+        # Decrypt the content
+        decrypted_content = cipher.decrypt(encrypted_content)
+
+        # Remove padding (using PKCS7 padding)
+        decrypted_content = Padding.unpad(decrypted_content, AES.block_size)
+
+        return decrypted_content

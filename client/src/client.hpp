@@ -9,6 +9,7 @@
 #include <cstring>
 #include "Base64Wrapper.h"
 #include "requests.hpp"
+#include "RSAWrapper.h"
 
 const int DEFAULT_KEYLENGTH = 32;
 const int MAX_CONTENT_SIZE = 1024;
@@ -34,6 +35,10 @@ public:
     void calculateCRC(const std::string& filePath);  // Function to calculate CRC from a file
     std::vector<uint8_t> Client::getClientID() const;
     uint32_t Client::getCRCValue() const {return crcValue_;};
+    void setPrivateKey(const std::string& privateKey) {private_key_ = privateKey;};
+    void savePrivateKeyToFile(const std::string& filename, RSAPrivateWrapper RSAObject);
+    void savePrivateKeyToFile(const std::string& filename, std::string privateKey);
+
 
 private:
     boost::asio::io_context io_context_;
@@ -48,6 +53,7 @@ private:
     unsigned char aes_key_[DEFAULT_KEYLENGTH];
     std::string Client::decryptWithPrivateKey(const std::string& encryptedKey);
     unsigned long crcValue_;
+    void Client::savePrivateKeyToFile(const std::string& filename);
 };
 
 std::tuple<std::string, std::string, std::string, std::string> readTransferInfo(const std::string& filename);

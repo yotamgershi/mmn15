@@ -184,7 +184,6 @@ void Client::writeToMeInfo(Base64Wrapper& base64, const std::string& clientName,
     meFile.close();
 }
 
-
 void Client::createAndSaveAESKey() {
     // Create AES keys (adapted for AES instead of RSA)
     Base64Wrapper base64;
@@ -202,37 +201,39 @@ void Client::createAndSaveAESKey() {
 
 
     // Save the AES key to "priv.key"
-    saveAESKeyToFile();  // This will save the key to "priv.key" by default
+    // savePrivateKeyToFile("priv.key");
 
     // Create 'me.info' to store client info and AES key
-    // std::string aesKeyStr(reinterpret_cast<const char*>(this->aes_key_), DEFAULT_KEYLENGTH);
     writeToMeInfo(base64, this->name_, aesKeyStr, this->clientID_);
-
 }
 
-void Client::saveAESKeyToFile(const std::string& filename) {
-    Base64Wrapper base64;
-    // Convert unsigned char[] to std::string
-    std::string aesKeyStr(reinterpret_cast<const char*>(this->aes_key_), DEFAULT_KEYLENGTH);
-
-    // Encode the AES key in Base64 format
-    std::string aesKeyBase64 = base64.encode(aesKeyStr);
-
-    // Open the file to write the AES key (default is priv.key)
+void Client::savePrivateKeyToFile(const std::string& filename, std::string privateKey) {
+    // Open the file to write the private key (default is priv.key)
     std::ofstream outFile(filename);
     if (!outFile) {
         std::cerr << "Error: Could not create or open the file: " << filename << std::endl;
         return;
     }
 
-    // Write the Base64 encoded AES key to the file
-    outFile << aesKeyBase64 << std::endl;
+    // Change private_key_ to Base64 encoding using Base64Wrapper
+    Base64Wrapper base64;
+    std::string privateKeyBase64 = base64.encode(privateKey);
+
+    // Write the private key to the file
+    outFile << privateKeyBase64 << std::endl;
 
     outFile.close();
-    std::cout << "AES key saved to " << filename << std::endl;
+    std::cout << "Private key saved to " << filename << std::endl;
 }
 
 bool Client::sendPublicKey() {
+
+    Base64Wrapper base64;
+    RSAPrivateWrapper RSAObject;  
+    setPrivateKey(RSAObject.getPrivateKey());
+    savePrivateKeyToFile("priv.key", RSAObject.getPrivateKey());
+	const std::string public_key_ = RSAObject.getPublicKey();
+    
     if (public_key_.empty()) {
         std::cerr << "Error: Public key not set. Please generate RSA keys first." << std::endl;
         return false;
@@ -331,8 +332,24 @@ std::string Client::decryptWithPrivateKey(const std::string& encryptedKey) {
     std::string decryptedKey;
     
     CryptoPP::RSA::PrivateKey privateKey;
-    // Load private key (assuming it's stored in private_key_)
-    CryptoPP::StringSource ss(this->private_key_, true, new CryptoPP::Base64Decoder);
+
+    //Load private key from priv.key
+    if (!fileExists("priv.key")) {
+        std::cerr << "Error: Private key file not found." << std::endl;
+        return "";
+    }
+
+    // Read the private key from the file
+    std::ifstream file("priv.key");
+    std::string privateKeyBase64;
+    if (file.is_open()) {
+        std::getline(file, privateKeyBase64);
+    } else {
+        std::cerr << "Error: Unable to open priv.key for reading." << std::endl;
+        return "";
+    }
+
+    CryptoPP::StringSource ss(privateKeyBase64, true, new CryptoPP::Base64Decoder);
 
     CryptoPP::RSAES_OAEP_SHA_Decryptor decryptor(privateKey);
     
