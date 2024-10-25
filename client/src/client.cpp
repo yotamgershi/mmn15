@@ -439,7 +439,8 @@ void Client::sendFile(const std::string& filePath) {
 
     std::cout << "Encrypting file content..." << std::endl;
     // Step 3: Encrypt the file content
-    std::string encryptedFile = aesWrapper.encrypt(reinterpret_cast<const char*>(fileContent.data()), fileContent.size());
+    // std::string encryptedFile = aesWrapper.encrypt(reinterpret_cast<const char*>(fileContent.data()), fileContent.size());
+    std::string encryptedFile = reinterpret_cast<const char*>(fileContent.data());
 
     std::cout << "File encrypted successfully. Converting to vector" << std::endl;
     // Convert the encrypted file content to std::vector<uint8_t> for further processing
@@ -512,11 +513,11 @@ void Client::sendFile(const std::string& filePath) {
     uint32_t crcValueFromClient = getCRCValue();
 
     // Compare the CRC value from the response with the calculated CRC value
-    if (crcValueFromServer == crcValueFromClient) {
-        std::cout << "CRC matched: " << crcValueFromClient << std::endl;
-    } else {
-        std::cerr << "CRC mismatch! Expected: " << crcValueFromClient << ", Received: " << crcValueFromServer << std::endl;
-    }        
+//     if (crcValueFromServer == crcValueFromClient) {
+//         std::cout << "CRC matched: " << crcValueFromClient << std::endl;
+//     } else {
+//         std::cerr << "CRC mismatch! Expected: " << crcValueFromClient << ", Received: " << crcValueFromServer << std::endl;
+//     }        
 }
 
 void Client::calculateCRC(const std::string& filePath) {

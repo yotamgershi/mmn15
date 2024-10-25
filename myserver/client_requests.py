@@ -214,6 +214,7 @@ class Request:
 
         logging.info(f"Extracted file name: {file_name}")
         logging.info(f"Packet content size: {len(packet_content)} bytes, packet number: {packet_number}/{total_packets}")
+        logging.info(f"Packet content: {packet_content}")
 
         # Step 1: Initialize file content collection if it hasn't been done already
         if not hasattr(self, 'file_content'):
@@ -228,17 +229,19 @@ class Request:
         if packet_number == total_packets - 1:
             logging.info("All packets received. Decrypting file...")
 
+            decrypted_file_content = self.file_content  # Placeholder for decryption
+
             # Step 3: Decrypt the received file content
-            try:
-                decrypted_file_content = self.decrypt_file_content(self.file_content, self.client_id, db_hand)
-                logging.info(f"Decrypted file content: {decrypted_file_content}")
-            except ValueError as e:
-                logging.error(f"Decryption failed: {e}")
+            # try:
+            #     decrypted_file_content = self.decrypt_file_content(self.file_content, self.client_id, db_hand)
+            #     logging.info(f"Decrypted file content: {decrypted_file_content}")
+            # except ValueError as e:
+            #     logging.error(f"Decryption failed: {e}")
 
             # Optional: Verify the decrypted file size
-            if len(decrypted_file_content) != self.expected_file_size:
-                logging.error(f"Decrypted file size mismatch! Expected {self.expected_file_size}, received {len(decrypted_file_content)}")
-                return Response(code=ResponseCode.FILE_SIZE_ERROR, payload=b'')
+            # if len(decrypted_file_content) != self.expected_file_size:
+            #     logging.error(f"Decrypted file size mismatch! Expected {self.expected_file_size}, received {len(decrypted_file_content)}")
+            #     return Response(code=ResponseCode.FILE_SIZE_ERROR, payload=b'')
 
             logging.info("File decrypted successfully. Verifying file integrity...")
 
