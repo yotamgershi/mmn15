@@ -42,6 +42,9 @@ void Response::parse(uint16_t responseCode) {
         case SEND_FILE_SUCCESS:
             parseSendFileSuccessResponse();
             break;
+        case ACK:
+            parseAck();
+            break;
         default:
             std::cerr << "Unknown response code: " << responseCode << std::endl;
             break;
@@ -123,7 +126,7 @@ std::string Response::getAESKey() const {
 }
 
 void Response::parseSendFileSuccessResponse() {
-    std::cout << "File sent successfully!" << std::endl;
+    std::cout << "Response code: " << responseCode_ << std::endl;
 
     // Ensure the payload has at least 4 bytes for the CRC value
     if (payload_.size() < 4) {
@@ -140,4 +143,8 @@ void Response::parseSendFileSuccessResponse() {
 
     // Print the extracted CRC value
     std::cout << "CRC value: " << std::hex << crc_value_ << std::dec << std::endl;
+}
+
+void Response::parseAck() {
+    std::cout << "ACK received!" << std::endl;
 }

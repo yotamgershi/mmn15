@@ -508,16 +508,27 @@ void Client::sendFile(const std::string& filePath) {
     uint32_t crcValueFromServer = response.getCRCValue();
     uint32_t crcValueFromClient = getCRCValue();
 
-    std::cout << "Line 515" << std::endl;
+    try {
+    std::cout << "Before constructing request." << std::endl;
 
-    // Construct request for CRC value
-    Request request(clientID_, VERSION, RequestCode::CRC_VALID, name_, public_key_);
-    request.buildCRCValidRequest(filePath);
-    std::cout << "Request built for CRC valid." << std::endl;
+    // Build the request buffer directly using the free function
+    std::vector<uint8_t> requestBuffer = buildCRCValidRequestBuffer(clientID_, VERSION, RequestCode::CRC_VALID, filePath);
+    std::cout << "CRC request built successfully." << std::endl;
 
-    // Send the request to the server
-    send(request.getRequest());
-    std::cout << "Request sent to server." << std::endl;
+    // Attempt to send the request
+    std::cout << "Before sending request..." << std::endl;
+    send(requestBuffer);
+    std::cout << "After sending request." << std::endl;
+
+    // Attempt to receive response
+    std::cout << "Waiting for response..." << std::endl;
+    Response CRCResponse = receive();
+    std::cout << "Response received!" << std::endl;
+
+    } catch (const std::exception& e) {
+        std::cerr << "Exception occurred: " << e.what() << std::endl;
+    }
+
 
     // Receive the server's response
     Response CRCResponse = receive();

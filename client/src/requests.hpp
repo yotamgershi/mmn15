@@ -55,5 +55,10 @@ void buildSendPacketRequest(
     const std::vector<uint8_t>& messageContent,
     std::vector<uint8_t>& requestBuffer
 );
+std::vector<uint8_t> buildCRCValidRequestBuffer(
+    const std::string& clientID,
+    int version,                    
+    RequestCode requestCode,       
+    const std::string& fileName);
 
 #endif // REQUEST_HPP

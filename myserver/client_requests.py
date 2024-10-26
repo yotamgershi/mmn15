@@ -251,7 +251,7 @@ class Request:
             )
 
             response = Response(code=ResponseCode.SEND_FILE_SUCCESS, payload=response_payload)
-            logging.info(f"Send file response prepared with CRC: {crc_value}")
+            # logging.info(f"Send file response prepared with CRC: {crc_value}")
             return response
 
     def decrypt_file_content(self, encrypted_content: bytes, client_id: bytes, db_hand: DBHandler) -> bytes:
@@ -280,13 +280,17 @@ class Request:
 
         return decrypted_content
 
-    def handle_crc_valid(self, db_hand: DBHandler):
+    def handle_crc_valid(self, db_hand: DBHandler) -> Response:
         logging.info("CRC valid request received")
 
         # Extract the file name and CRC value from the payload
-        self.insert_content_to_file()
-        file_name = self.payload[:255].rstrip(b'\x00').decode('ascii')
-        db_hand.insert_file(client_id=self.client_id, file_name=file_name, path_name=file_name, verified=True)
+        # self.insert_content_to_file()
+        # try:
+        #     file_name = self.payload[:255].rstrip(b'\x00').decode('ascii')
+        # except UnicodeDecodeError:
+        #     logging.error("Error decoding file name")
+        #     return Response(code=ResponseCode.ACK, payload=b'')
+        # db_hand.insert_file(client_id=self.client_id, file_name=file_name, path_name=file_name, verified=True)
 
         return Response(code=ResponseCode.ACK, payload=b'')
 

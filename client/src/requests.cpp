@@ -37,6 +37,7 @@ Request::Request(const std::string& clientID, uint8_t version, uint16_t requestC
 
 // Function that dispatches the correct request-building function
 void Request::buildRequest(uint16_t requestCode, const std::string& name, const std::string& publicKey) {
+    std::cout << "Request code in buildRequest: " << requestCode << std::endl;
     switch (requestCode) {
         case RequestCode::SIGN_UP:
             buildSignUpRequest(name);
@@ -47,11 +48,9 @@ void Request::buildRequest(uint16_t requestCode, const std::string& name, const 
         case RequestCode::SIGN_IN:
             buildSignInRequest(name);
             break;
-        case RequestCode::CRC_VALID:
-            buildCRCValidRequest(name);
         case RequestCode::CRC_INVALID:
         default:
-            throw std::runtime_error("Unknown request code");
+            throw std::runtime_error("Unknown request code: " + std::to_string(requestCode));
     }
 }
 
@@ -174,9 +173,39 @@ void buildSendPacketRequest(
     requestBuffer.insert(requestBuffer.end(), messageContent.begin(), messageContent.end());
 }
 
-void Request::buildCRCValidRequest(const std::string& fileName) {
-    // Clear the current payload
-    payload_.clear();
+// Free function to build the CRC_VALID request buffer
+std::vector<uint8_t> buildCRCValidRequestBuffer(
+    const std::string& clientID,
+    int version,                    // Using int for VERSION to match your variable type
+    RequestCode requestCode,        // Enum for request code; can cast to uint16_t inside function if needed
+    const std::string& fileName) {
+    
+    std::vector<uint8_t> requestBuffer;
+    std::vector<uint8_t> payload;
+    uint32_t payloadSize;
+
+    // Ensure clientID is exactly 16 bytes (pad or truncate if necessary)
+    std::string clientIDPadded = clientID;
+    if (clientIDPadded.length() > 16) {
+        clientIDPadded = clientIDPadded.substr(0, 16);  // Truncate to 16 bytes
+    } else if (clientIDPadded.length() < 16) {
+        clientIDPadded.resize(16, '\0');  // Pad with null characters
+    }
+
+    // Add Client ID to request (16 bytes)
+    requestBuffer.insert(requestBuffer.end(), clientIDPadded.begin(), clientIDPadded.end());
+
+    // Add Version (1 byte)
+    requestBuffer.push_back(version);
+
+    // Add Request Code (2 bytes, little-endian)
+    requestBuffer.push_back(requestCode & 0xFF);         // Low byte
+    requestBuffer.push_back((requestCode >> 8) & 0xFF);  // High byte
+
+    // Add Placeholder for Payload Size (4 bytes, initially 0)
+    for (int i = 0; i < 4; ++i) {
+        requestBuffer.push_back(0);  // Placeholder, to be updated later
+    }
 
     // Ensure the file name is within 255 bytes
     std::string fileNamePadded = fileName;
@@ -187,18 +216,19 @@ void Request::buildCRCValidRequest(const std::string& fileName) {
     }
 
     // Add the file name to the payload
-    payload_.insert(payload_.end(), fileNamePadded.begin(), fileNamePadded.end());
+    payload.insert(payload.end(), fileNamePadded.begin(), fileNamePadded.end());
 
-    // Update the payload size in the request header
-    payloadSize_ = static_cast<uint32_t>(payload_.size());  // Calculate the new payload size
-    request_[19] = payloadSize_ & 0xFF;         // Byte 1 (LSB)
-    request_[20] = (payloadSize_ >> 8) & 0xFF;  // Byte 2
-    request_[21] = (payloadSize_ >> 16) & 0xFF; // Byte 3
-    request_[22] = (payloadSize_ >> 24) & 0xFF; // Byte 4 (MSB)
+    // Calculate and set payload size
+    payloadSize = static_cast<uint32_t>(payload.size());
+    requestBuffer[19] = payloadSize & 0xFF;         // Byte 1 (LSB)
+    requestBuffer[20] = (payloadSize >> 8) & 0xFF;  // Byte 2
+    requestBuffer[21] = (payloadSize >> 16) & 0xFF; // Byte 3
+    requestBuffer[22] = (payloadSize >> 24) & 0xFF; // Byte 4 (MSB)
 
-    // Append the payload (file name) to the full request
-    request_.insert(request_.end(), payload_.begin(), payload_.end());
+    // Append the payload (file name) to the request buffer
+    requestBuffer.insert(requestBuffer.end(), payload.begin(), payload.end());
 
     std::cout << "CRC request built successfully." << std::endl;
-    
+
+    return requestBuffer;
 }
