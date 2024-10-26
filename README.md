@@ -77,22 +77,22 @@ pip install -r server/requirements.txt
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/projectname.git
+   git clone https://github.com/yotamgershi/mmn15.git
    ```
 
 2. Navigate to the `client` directory and build the client using CMake:
    ```bash
    cd client
    mkdir build && cd build
-   cmake ..
-   make
+   cmake --build .
+   cppclient.exe
    ```
 
 ### Server
 
 1. Clone the repository (if not done already):
    ```bash
-   git clone https://github.com/yourusername/projectname.git
+   git clone https://github.com/yotamgershi/mmn15.git
    ```
 
 2. Navigate to the `server` directory and install dependencies:
@@ -100,9 +100,7 @@ pip install -r server/requirements.txt
    cd server
    pip install -r requirements.txt
    ```
-
-## Usage
-
+  
 ### Running the Server
 
 1. Start the server by running:
@@ -114,9 +112,9 @@ pip install -r server/requirements.txt
 
 ### Running the Client
 
-1. Compile the client and run it, specifying the server’s IP address and port:
+1. Compile the client and run it:
    ```bash
-   ./client [server_ip] [port]
+   cppclient.exe
    ```
 
 ### Example Usage
@@ -128,7 +126,7 @@ pip install -r server/requirements.txt
 ## Configuration
 
 - **Client**:
-  - Configure encryption keys and file paths in `client/src/client.cpp`.
+  - Configure encryption keys and file paths in `client/src/client.cpp`, `client/src/transfer.info`.
   - Modify network settings in the code as necessary.
 
 - **Server**:
@@ -139,16 +137,6 @@ pip install -r server/requirements.txt
 
 - **Large Files**: Currently, large files may face transfer issues due to network constraints.
 - **Error Handling**: Limited error handling for unexpected disconnections during file transfers.
-
-## Contributing
-
-Contributions are welcome! Please fork the repository and submit a pull request for any improvements.
-
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/YourFeature`).
-3. Commit your changes (`git commit -m 'Add some feature'`).
-4. Push to the branch (`git push origin feature/YourFeature`).
-5. Open a Pull Request.
 
 ## License
 
