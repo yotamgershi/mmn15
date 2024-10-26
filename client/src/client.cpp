@@ -509,16 +509,11 @@ void Client::sendFile(const std::string& filePath) {
     uint32_t crcValueFromClient = getCRCValue();
 
     try {
-    std::cout << "Before constructing request." << std::endl;
-
     // Build the request buffer directly using the free function
     std::vector<uint8_t> requestBuffer = buildCRCValidRequestBuffer(clientID_, VERSION, RequestCode::CRC_VALID, filePath);
-    std::cout << "CRC request built successfully." << std::endl;
 
     // Attempt to send the request
-    std::cout << "Before sending request..." << std::endl;
     send(requestBuffer);
-    std::cout << "After sending request." << std::endl;
 
     // Attempt to receive response
     std::cout << "Waiting for response..." << std::endl;
@@ -527,24 +522,7 @@ void Client::sendFile(const std::string& filePath) {
 
     } catch (const std::exception& e) {
         std::cerr << "Exception occurred: " << e.what() << std::endl;
-    }
-
-
-    // Receive the server's response
-    Response CRCResponse = receive();
-    std::cout << "Response received from server." << std::endl;
-
-    // Log the response code
-    std::cout << "Response code: " << CRCResponse.getResponseCode() << std::endl;
-
-
-
-    // Compare the CRC value from the response with the calculated CRC value
-//     if (crcValueFromServer == crcValueFromClient) {
-//         std::cout << "CRC matched: " << crcValueFromClient << std::endl;
-//     } else {
-//         std::cerr << "CRC mismatch! Expected: " << crcValueFromClient << ", Received: " << crcValueFromServer << std::endl;
-//     }        
+    }      
 }
 
 void Client::calculateCRC(const std::string& filePath) {

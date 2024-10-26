@@ -231,6 +231,8 @@ class Request:
             crc_value = cksum.memcrc(decrypted_file_content)
             logging.info(f"Calculated CRC: {crc_value}")
 
+            self.insert_content_to_file(file_name)
+
             # Step 5: Prepare the response (1603) with Client ID, Content Size, File Name, and CRC
             response_payload = (
                 self.client_id +
@@ -275,16 +277,12 @@ class Request:
         logging.info("Trying to decode the payload")
         file_name = self.payload[:255].rstrip(b'\x00').decode('latin-1')
         logging.info(f"File name: {file_name}")
+
         try:
             db_hand.insert_file(client_id=self.client_id, file_name=file_name, path_name=file_name, verified=True, checksum="123")
             logging.info("File inserted into database")
         except Exception as e:
             logging.error(f"Error inserting file into database: {e}")
-        try:
-            self.insert_content_to_file(file_name)
-            logging.info("Content inserted into file")
-        except Exception as e:
-            logging.error(f"Error inserting content into file: {e}")
 
         return Response(code=ResponseCode.ACK, payload=b'')
 
