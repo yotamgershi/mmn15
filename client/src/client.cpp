@@ -492,6 +492,7 @@ void Client::sendFile(const std::string& filePath) {
         // Send the request
         std::cout << "Packet number: " << (packetNum + 1) << " / " << totalPackets << std::endl;
         send(requestBuffer);
+        
 
         packetNum++;
     }

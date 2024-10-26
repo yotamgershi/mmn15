@@ -171,6 +171,9 @@ void buildSendPacketRequest(
 
     // 8. Add the message content (messageContent.size() should be <= MAX_CONTENT_SIZE)
     requestBuffer.insert(requestBuffer.end(), messageContent.begin(), messageContent.end());
+
+    // Print payload size
+    std::cout << "Payload size: " << payloadSize << std::endl;
 }
 
 // Free function to build the CRC_VALID request buffer

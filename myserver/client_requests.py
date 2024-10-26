@@ -198,6 +198,9 @@ class Request:
     def handle_send_file(self, db_hand: DBHandler) -> Response:
         logging.info("Send file request received")
 
+        # Print payload size for debugging
+        logging.info(f"Payload size: {self.payload_size} bytes")
+
         # Extract original file size (4 bytes), packet number (2 bytes), total packets (2 bytes), file name (255 bytes)
         original_file_size = int.from_bytes(self.payload[:4], byteorder='little')
         logging.info(f"Original file size: {original_file_size} bytes")
