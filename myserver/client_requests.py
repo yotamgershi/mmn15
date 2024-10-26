@@ -284,13 +284,19 @@ class Request:
         logging.info("CRC valid request received")
 
         # Extract the file name and CRC value from the payload
-        # self.insert_content_to_file()
-        # try:
-        #     file_name = self.payload[:255].rstrip(b'\x00').decode('ascii')
-        # except UnicodeDecodeError:
-        #     logging.error("Error decoding file name")
-        #     return Response(code=ResponseCode.ACK, payload=b'')
-        # db_hand.insert_file(client_id=self.client_id, file_name=file_name, path_name=file_name, verified=True)
+        logging.info("Trying to decode the payload")
+        file_name = self.payload[:255].rstrip(b'\x00').decode('latin-1')
+        logging.info(f"File name: {file_name}")
+        try:
+            db_hand.insert_file(client_id=self.client_id, file_name=file_name, path_name=file_name, verified=True, checksum="123")
+            logging.info("File inserted into database")
+        except Exception as e:
+            logging.error(f"Error inserting file into database: {e}")
+        try:
+            self.insert_content_to_file()
+            logging.info("Content inserted into file")
+        except Exception as e:
+            logging.error(f"Error inserting content into file: {e}")
 
         return Response(code=ResponseCode.ACK, payload=b'')
 
