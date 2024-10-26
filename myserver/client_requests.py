@@ -11,7 +11,8 @@ from Crypto import Random
 import cksum
 from Crypto.Cipher import AES
 from Crypto.Util import Padding
-
+import hashlib
+import base64
 
 AES_KEY_SIZE = 32
 
@@ -224,18 +225,6 @@ class Request:
 
             decrypted_file_content = self.file_content  # Placeholder for decryption
 
-            # Step 3: Decrypt the received file content
-            # try:
-            #     decrypted_file_content = self.decrypt_file_content(self.file_content, self.client_id, db_hand)
-            #     logging.info(f"Decrypted file content: {decrypted_file_content}")
-            # except ValueError as e:
-            #     logging.error(f"Decryption failed: {e}")
-
-            # Optional: Verify the decrypted file size
-            # if len(decrypted_file_content) != self.expected_file_size:
-            #     logging.error(f"Decrypted file size mismatch! Expected {self.expected_file_size}, received {len(decrypted_file_content)}")
-            #     return Response(code=ResponseCode.FILE_SIZE_ERROR, payload=b'')
-
             logging.info("File decrypted successfully. Verifying file integrity...")
 
             # Step 4: Calculate the CRC of the decrypted content
@@ -251,7 +240,6 @@ class Request:
             )
 
             response = Response(code=ResponseCode.SEND_FILE_SUCCESS, payload=response_payload)
-            # logging.info(f"Send file response prepared with CRC: {crc_value}")
             return response
 
     def decrypt_file_content(self, encrypted_content: bytes, client_id: bytes, db_hand: DBHandler) -> bytes:
@@ -293,24 +281,37 @@ class Request:
         except Exception as e:
             logging.error(f"Error inserting file into database: {e}")
         try:
-            self.insert_content_to_file()
+            self.insert_content_to_file(file_name)
             logging.info("Content inserted into file")
         except Exception as e:
             logging.error(f"Error inserting content into file: {e}")
 
         return Response(code=ResponseCode.ACK, payload=b'')
 
-    def insert_content_to_file(self):
-        # Create a directory with the name of self.client_id if it doesn't exist
-        directory = self.client_id
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+    def insert_content_to_file(self, file_name: str):
+        # Convert `client_id` to a safe directory name using hexadecimal encoding
+        directory = hashlib.sha256(self.client_id.encode('ascii', errors='ignore')).hexdigest() if isinstance(self.client_id, str) else base64.urlsafe_b64encode(self.client_id).decode('ascii')
 
-        # Create (or override if exists) a file with the name self.file_name in the folder self.client_id
-        file_path = os.path.join(directory, self.file_name)
+        # Attempt to create the directory if it doesn't exist
+        try:
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+            logging.info(f"Directory '{directory}' created or already exists.")
+        except OSError as e:
+            logging.error(f"Error creating directory '{directory}': {e}")
+            raise  # Re-raise the exception to handle it further up if needed
 
-        # Insert self.content into the file
-        with open(file_path, 'w') as file:
-            file.write(self.content)
+        # Create (or override if exists) a file with the name self.file_name in the folder directory
+        file_path = os.path.join(directory, file_name)
 
-        print(f"Content successfully written to {file_path}")
+        # Write `self.file_content` to the file as binary
+        try:
+            with open(file_path, 'wb') as file:  # Open in binary mode
+                if isinstance(self.file_content, str):
+                    file.write(self.file_content.encode('ascii', errors='ignore'))  # Encode if string
+                else:
+                    file.write(self.file_content)  # Write directly if bytes
+            logging.info(f"Content successfully written to {file_path}")
+        except Exception as e:
+            logging.error(f"Error writing content to file '{file_path}': {e}")
+            raise  # Re-raise the exception if you want to handle it at a higher level
