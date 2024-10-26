@@ -10,7 +10,6 @@
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Known Issues](#known-issues)
-- [Contributing](#contributing)
 - [License](#license)
 
 ## Project Description
