@@ -52,7 +52,6 @@ void Response::parse(uint16_t responseCode) {
 void Response::parseSignUpSuccessResponse() {
     if (payload_.size() >= 16) {
         std::string clientID(payload_.begin(), payload_.begin() + 16);
-        std::cout << "Sign-up successful! Client ID: " << clientID << std::endl;
     } else {
         std::cerr << "Error: Payload too short for Client ID" << std::endl;
     }
@@ -77,11 +76,6 @@ void Response::parsePublicKeyReceivedResponse() {
 
     // Output extracted values for debugging
     std::cout << "Public key received!" << std::endl;
-    std::cout << "Encrypted AES Key (hex): ";
-    for (const auto& byte : encryptedAESKey_) {
-        printf("%02x", byte);  // Print AES key as hex
-    }
-    std::cout << std::endl;
 }
 
 void Response::parseSignInSuceessResponse() {
@@ -116,10 +110,10 @@ std::string Response::getAESKey() const {
         std::cout << std::endl;
 
         std::cout << "AES Key: ";
-        for (const auto& byte : aesKey) {
-            std::cout << std::hex << static_cast<int>(byte) << " ";
-        }
-        std::cout << std::endl;
+        // for (const auto& byte : aesKey) {
+        //     std::cout << std::hex << static_cast<int>(byte) << " ";
+        // }
+        // std::cout << std::endl;
 
         // Convert the AES key to std::string and return it
         return std::string(aesKey.begin(), aesKey.end());

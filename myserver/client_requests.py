@@ -1,3 +1,4 @@
+import os
 import logging
 from typing import Tuple
 from uuid import uuid4
@@ -20,6 +21,7 @@ class RequestCode:
     SEND_PUBLIC_KEY = 826
     SIGN_IN = 827
     SEND_FILE = 828
+    CRC_VALID = 900
 
 
 class Request:
@@ -33,15 +35,10 @@ class Request:
         self.header = Request.parse_header(data)
 
         self.client_id = self.header[0]
-        logging.info(f"Client ID: {self.client_id.hex()}")
         self.version = self.header[1]
-        logging.info(f"Version: {self.version}")
         self.code = self.header[2]
-        logging.info(f"Code: {self.code}")
         self.payload_size = self.header[3]
-        logging.info(f"Payload size: {self.payload_size}")
         self.payload = self.header[4]
-        logging.info(f"Payload: {self.payload.hex()}")
 
         if self.payload_size > Request.MAX_PAYLOAD_SIZE:
             raise ValueError(f"Invalid request: payload size exceeds maximum size of {Request.MAX_PAYLOAD_SIZE}")
@@ -87,7 +84,7 @@ class Request:
         return f"Request(client_id={clean_client_id}, version={self.version}, code={self.code}, payload_size={self.payload_size}, payload={clean_payload})"
 
     def handle_sign_up(self, db_hand: DBHandler) -> Response:
-        # logging.info(f"Sign up request received: \n{str(self)}")
+        logging.info("Sign up request received")
         client_name = self.payload.decode('utf-8').replace('\0', '').strip()
 
         if not db_hand.is_registered(client_name=client_name):
@@ -110,7 +107,7 @@ class Request:
         """
         # Retrieve the client's public key from the database
         public_key = db_hand.get_client(client_id)[2]  # Assuming the public key is in the 3rd column
-        logging.info(f"Retrieved public key: {public_key.hex()}")
+        logging.info("Retrieved public key")
 
         # Generate a new AES key for the client
         aes_key = Random.get_random_bytes(AES_KEY_SIZE)
@@ -121,17 +118,17 @@ class Request:
         # Encrypt the AES key with the client's public RSA key
         encrypted_aes_key = Request.encrypt_aes_key_with_rsa(aes_key, public_key)
 
-        logging.info(f"Generated new AES key: {aes_key.hex()}")
+        logging.info("Generated new AES key")
         return client_id, encrypted_aes_key
 
     def handle_send_public_key(self, db_hand: DBHandler) -> Response:
-        logging.info(f"Send public key request received: client_id={self.client_id.hex()}, payload={self.payload.hex()}")
+        logging.info("Send public key request received")
 
         client_id = self.client_id  # Keep as binary
-        name = self.payload[:255].rstrip(b'\x00').decode('ascii')
+        # name = self.payload[:255].rstrip(b'\x00').decode('ascii')
         public_key = self.payload[255:415]  # 160 bytes for the public key
 
-        logging.info(f"Extracted name: {name}, public key: {public_key.hex()}")
+        logging.info("Extracted name and public key")
 
         # Update the client's public key in the database
         db_hand.set_client_public_key(client_id=client_id, public_key=public_key)
@@ -149,8 +146,6 @@ class Request:
     def encrypt_aes_key_with_rsa(aes_key: bytes, public_key: bytes) -> bytes:
         try:
             logging.info("Encrypting AES key with RSA...")
-            logging.info(f"AES key: {aes_key.hex()}")
-            logging.info(f"Public key: {public_key.hex()}")
 
             # Load the RSA public key from the received payload (DER or PEM)
             rsa_key = RSA.import_key(public_key)
@@ -169,7 +164,6 @@ class Request:
     def handle_sign_in(self, db_hand: DBHandler) -> Response:
         logging.info(f"Sign in request received: \n{str(self)}")
         client_name = self.payload.decode('utf-8').replace('\0', '').strip()
-        logging.info(f"Client name: {client_name}")
 
         # Check if the client is registered
         client_id_from_db = db_hand.is_registered(client_name=client_name)
@@ -183,7 +177,7 @@ class Request:
 
         # Check if the client ID matches the one in the database
         if client_id != client_id_from_db:
-            logging.info(f"Client ID mismatch: {client_id.hex()} != {client_id_from_db.hex()}, generating new ID.")
+            logging.info("Client ID mismatch, generating new ID.")
             client_id = uuid4().bytes  # Generate a new ID in case of mismatch
             return Response(code=ResponseCode.SIGN_IN_FAILURE, payload=client_id)
 
@@ -201,7 +195,7 @@ class Request:
         return Response(code=ResponseCode.SIGN_IN_SUCCESS, payload=payload)
 
     def handle_send_file(self, db_hand: DBHandler) -> Response:
-        logging.info(f"Send file request received: \n{str(self)}")
+        logging.info("Send file request received")
 
         # Extract original file size (4 bytes), packet number (2 bytes), total packets (2 bytes), file name (255 bytes)
         original_file_size = int.from_bytes(self.payload[:4], byteorder='little')
@@ -213,8 +207,7 @@ class Request:
         packet_content = self.payload[263:]  # Packet content starts after the file name
 
         logging.info(f"Extracted file name: {file_name}")
-        logging.info(f"Packet content size: {len(packet_content)} bytes, packet number: {packet_number}/{total_packets}")
-        logging.info(f"Packet content: {packet_content}")
+        logging.info(f"Packet content size: {len(packet_content)} bytes, packet number: {packet_number + 1}/{total_packets}")
 
         # Step 1: Initialize file content collection if it hasn't been done already
         if not hasattr(self, 'file_content'):
@@ -274,8 +267,7 @@ class Request:
         if aes_key is None:
             raise ValueError("AES key not found for client ID")
 
-        logging.info(f"Retrieved AES key: {aes_key}")
-        logging.info(f"AES key size: {len(aes_key)} bytes")
+        logging.info("Retrieved AES key")
 
         # Use AES CBC mode for decryption with a zeroed 16-byte IV
         cipher = AES.new(aes_key, AES.MODE_CBC, iv=bytes(16))
@@ -287,3 +279,28 @@ class Request:
         decrypted_content = Padding.unpad(decrypted_content, AES.block_size)
 
         return decrypted_content
+
+    def handle_crc_valid(self, db_hand: DBHandler):
+        logging.info("CRC valid request received")
+
+        # Extract the file name and CRC value from the payload
+        self.insert_content_to_file()
+        file_name = self.payload[:255].rstrip(b'\x00').decode('ascii')
+        db_hand.insert_file(client_id=self.client_id, file_name=file_name, path_name=file_name, verified=True)
+
+        return Response(code=ResponseCode.ACK, payload=b'')
+
+    def insert_content_to_file(self):
+        # Create a directory with the name of self.client_id if it doesn't exist
+        directory = self.client_id
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        # Create (or override if exists) a file with the name self.file_name in the folder self.client_id
+        file_path = os.path.join(directory, self.file_name)
+
+        # Insert self.content into the file
+        with open(file_path, 'w') as file:
+            file.write(self.content)
+
+        print(f"Content successfully written to {file_path}")

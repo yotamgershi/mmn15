@@ -54,7 +54,7 @@ class Server:
                             if not data:
                                 logging.info("Client disconnected")
                                 break
-                            logging.info(f"Received: {data}")
+                            # logging.info(f"Received: {data}")
                             self.handle_request(data, conn)
                         except socket.timeout:
                             logging.warning("Socket timed out")
@@ -72,24 +72,26 @@ class Server:
                 logging.info("Received SIGN_UP request")
                 response = request.handle_sign_up(self.db_handler)
                 conn.sendall(response.to_bytes())
-                logging.info(f"Sent response: {response}")
             case RequestCode.SEND_PUBLIC_KEY:
                 logging.info("Received SEND_PUBLIC_KEY request")
                 response = request.handle_send_public_key(self.db_handler)
                 conn.sendall(response.to_bytes())
-                logging.info(f"Sent response: {response}")
             case RequestCode.SIGN_IN:
                 logging.info("Received SIGN_IN request")
                 response = request.handle_sign_in(self.db_handler)
                 conn.sendall(response.to_bytes())
-                logging.info(f"Sent response: {response}")
             case RequestCode.SEND_FILE:
                 logging.info("Received SEND_FILE request")
                 response = request.handle_send_file(self.db_handler)
                 conn.sendall(response.to_bytes())
-                logging.info(f"Sent response: {response}")
+            case RequestCode.CRC_VALID:
+                logging.info("Received CRC_VALID request")
+                response = request.handle_crc_valid(self.db_handler)
+                conn.sendall(response.to_bytes())
             case _:
                 logging.error(f"Unknown request code: {request.code}")
+
+        logging.info(f"Sent response code: {int.from_bytes(response.code, byteorder='little')}")
 
 
 # Example usage

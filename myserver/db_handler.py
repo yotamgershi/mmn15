@@ -44,7 +44,7 @@ class DBHandler:
         cursor.execute('''INSERT INTO clients (ID, Name, PublicKey, LastSeen, AESKey)
                           VALUES (?, ?, ?, ?, ?)''', (client_id, name, public_key, last_seen, aes_key))
         self.connection.commit()
-        logging.info(f"Inserted new client: {name} with ID: {client_id}")
+        logging.info(f"Inserted new client: {name}")
 
     def is_registered(self, client_name: str) -> Optional[str]:
         """Check if a client with the given name is registered and return the client_id."""
@@ -68,7 +68,7 @@ class DBHandler:
         cursor.execute('SELECT * FROM clients WHERE ID = ?', (client_id,))
         result = cursor.fetchone()
 
-        logging.info(f"Fetching data for client ID {client_id.hex()}: {result}")
+        logging.info(f"Fetching data for client ID {client_id.hex()}")
 
         return result
 
@@ -147,6 +147,20 @@ class DBHandler:
             return result[0]  # AES key is stored as the first column
         else:
             raise ValueError(f"No AES key found for client {client_id.hex()}")
+
+    def update_file_table(self, client_id, file_name, file_path, verified):
+        """Update the SQLite database with file metadata, assuming the table already exists."""
+        # Connect to the SQLite database
+        cursor = self.connection.cursor()
+
+        # Insert or replace the file metadata into the table, with NULL for Checksum
+        cursor.execute('''INSERT OR REPLACE INTO files (ID, FileName, PathName, Verified, Checksum)
+                        VALUES (?, ?, ?, ?, NULL)''', (client_id, file_name, file_path, verified))
+
+        # Commit the transaction and close the connection
+        self.connection.commit()
+
+        print(f"File metadata for '{file_name}' has been successfully updated in the database.")
 
     def close(self):
         """Close the database connection."""

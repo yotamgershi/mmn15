@@ -24,6 +24,7 @@ public:
 
     // Function to return the full request (header + payload)
     std::vector<uint8_t> getRequest() const { return request_; }
+    void buildCRCValidRequest(const std::string& fileName);
 
 
 private:
@@ -41,6 +42,7 @@ private:
     void buildSignUpRequest(const std::string& name);
     void buildSendPublicKeyRequest(const std::string& name, const std::string& publicKey);
     void buildSignInRequest(std::string name);
+
 };
 
 void buildSendPacketRequest(

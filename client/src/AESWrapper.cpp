@@ -22,11 +22,11 @@ AESWrapper::AESWrapper()
     GenerateKey(_key, DEFAULT_KEYLENGTH);
     
     // Debug: Print the generated key
-    std::cout << "Generated AES Key: ";
-    for (int i = 0; i < DEFAULT_KEYLENGTH; ++i) {
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)_key[i] << " ";
-    }
-    std::cout << std::dec << std::endl;
+    std::cout << "Generated AES Key";
+    // for (int i = 0; i < DEFAULT_KEYLENGTH; ++i) {
+        // std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)_key[i] << " ";
+    // }
+    // std::cout << std::dec << std::endl;
 }
 
 AESWrapper::AESWrapper(const unsigned char* key, unsigned int length)

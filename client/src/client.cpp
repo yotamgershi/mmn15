@@ -197,7 +197,7 @@ void Client::createAndSaveAESKey() {
     }
 
     std::string aesKeyStr(reinterpret_cast<const char*>(this->aes_key_), DEFAULT_KEYLENGTH);
-    std::cout << "AES key generated successfully: " << base64.encode(aesKeyStr) << std::endl;
+    std::cout << "AES key generated successfully" << std::endl;
 
 
     // Save the AES key to "priv.key"
@@ -465,8 +465,6 @@ void Client::sendFile(const std::string& filePath) {
     // Step 5: Use clientID_ attribute for sending the client ID
     std::string clientIDStr = getClientIDFromFile();
     std::vector<uint8_t> clientIdBytes(clientIDStr.begin(), clientIDStr.end());
-    std::cout << "Client ID size (after padding): " << clientIdBytes.size() << std::endl;
-    std::cout << "Client ID: " << bytesToHexString(clientIdBytes) << std::endl;
 
     std::vector<uint8_t> fileNameBytes(filePath.begin(), filePath.end());
 
@@ -491,8 +489,6 @@ void Client::sendFile(const std::string& filePath) {
             requestBuffer                 // std::vector<uint8_t> (request buffer)
         );
 
-        std::cout << "Request buffer: " << bytesToHexString(requestBuffer) << std::endl;
-
         // Send the request
         std::cout << "Packet number: " << (packetNum + 1) << " / " << totalPackets << std::endl;
         send(requestBuffer);
@@ -511,6 +507,26 @@ void Client::sendFile(const std::string& filePath) {
     // Step 6: Get the CRC value from the response
     uint32_t crcValueFromServer = response.getCRCValue();
     uint32_t crcValueFromClient = getCRCValue();
+
+    std::cout << "Line 515" << std::endl;
+
+    // Construct request for CRC value
+    Request request(clientID_, VERSION, RequestCode::CRC_VALID, name_, public_key_);
+    request.buildCRCValidRequest(filePath);
+    std::cout << "Request built for CRC valid." << std::endl;
+
+    // Send the request to the server
+    send(request.getRequest());
+    std::cout << "Request sent to server." << std::endl;
+
+    // Receive the server's response
+    Response CRCResponse = receive();
+    std::cout << "Response received from server." << std::endl;
+
+    // Log the response code
+    std::cout << "Response code: " << CRCResponse.getResponseCode() << std::endl;
+
+
 
     // Compare the CRC value from the response with the calculated CRC value
 //     if (crcValueFromServer == crcValueFromClient) {

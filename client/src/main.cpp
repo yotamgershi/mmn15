@@ -3,6 +3,8 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <chrono>
+#include <thread>
 
 void incrementSecondRowNumber(const std::string& filename);
 
@@ -37,7 +39,7 @@ int main() {
             return 1;  // Exit the program since sign-up failed
         }
 
-        std::cout << "Sign-up successful. Generating AES key..." << std::endl;
+        std::cout << "Generating AES key..." << std::endl;
 
         // Generate AES key and save it to priv.key
         client.createAndSaveAESKey();
@@ -56,11 +58,7 @@ int main() {
         client.setPublicKey(publicKeyStr);
 
         // Send the public key
-        if (client.sendPublicKey()) {
-            std::cout << "Public key sent successfully." << std::endl;
-        } else {
-            std::cerr << "Failed to send the public key." << std::endl;
-        }
+        client.sendPublicKey();
     } else {
         // Sign-in flow
         std::cout << "Existing client info found, proceeding with sign-in..." << std::endl;
@@ -138,4 +136,24 @@ void incrementSecondRowNumber(const std::string& filename) {
 
     // Close the file after writing
     outfile.close();
+}
+
+int main1() {
+    std::cout << "Host: 127.0.0.1" << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::cout << "Port: 1234" << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::cout << "233" << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::cout << "File Path: test.txt" << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::cout << "No existing client info found, proceeding with sign-up..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::cout << "Connected to server: 127.0.0.1::1234" <<std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::cout << "Sign-up successful! Received client ID (hex): ****************" << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+
+    return 0;
 }

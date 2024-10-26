@@ -47,6 +47,9 @@ void Request::buildRequest(uint16_t requestCode, const std::string& name, const 
         case RequestCode::SIGN_IN:
             buildSignInRequest(name);
             break;
+        case RequestCode::CRC_VALID:
+            buildCRCValidRequest(name);
+        case RequestCode::CRC_INVALID:
         default:
             throw std::runtime_error("Unknown request code");
     }
@@ -134,9 +137,6 @@ void buildSendPacketRequest(
     // 1. Add client ID (16 bytes)
     requestBuffer.insert(requestBuffer.end(), clientIdBytes.begin(), clientIdBytes.end());
 
-    std::cout << "Client ID size (after padding): " << clientIdBytes.size() << std::endl;
-    std::cout << "Client ID: " << bytesToHexString(clientIdBytes) << std::endl;
-
     // 2. Add version (1 byte, assuming version = 3)
     requestBuffer.push_back(VERSION);
 
@@ -172,4 +172,33 @@ void buildSendPacketRequest(
 
     // 8. Add the message content (messageContent.size() should be <= MAX_CONTENT_SIZE)
     requestBuffer.insert(requestBuffer.end(), messageContent.begin(), messageContent.end());
+}
+
+void Request::buildCRCValidRequest(const std::string& fileName) {
+    // Clear the current payload
+    payload_.clear();
+
+    // Ensure the file name is within 255 bytes
+    std::string fileNamePadded = fileName;
+    if (fileNamePadded.length() > 255) {
+        fileNamePadded = fileNamePadded.substr(0, 255);  // Truncate if longer than 255 bytes
+    } else {
+        fileNamePadded.resize(255, '\0');  // Pad with null characters to make it exactly 255 bytes
+    }
+
+    // Add the file name to the payload
+    payload_.insert(payload_.end(), fileNamePadded.begin(), fileNamePadded.end());
+
+    // Update the payload size in the request header
+    payloadSize_ = static_cast<uint32_t>(payload_.size());  // Calculate the new payload size
+    request_[19] = payloadSize_ & 0xFF;         // Byte 1 (LSB)
+    request_[20] = (payloadSize_ >> 8) & 0xFF;  // Byte 2
+    request_[21] = (payloadSize_ >> 16) & 0xFF; // Byte 3
+    request_[22] = (payloadSize_ >> 24) & 0xFF; // Byte 4 (MSB)
+
+    // Append the payload (file name) to the full request
+    request_.insert(request_.end(), payload_.begin(), payload_.end());
+
+    std::cout << "CRC request built successfully." << std::endl;
+    
 }
